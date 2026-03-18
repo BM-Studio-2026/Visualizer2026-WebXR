@@ -245,7 +245,7 @@ new THREE.TextureLoader().load('./sky.jpg',
     tex.mapping=THREE.EquirectangularReflectionMapping;
     tex.colorSpace=THREE.SRGBColorSpace;
     scene.background=tex;
-    scene.backgroundIntensity=0.28; // dim so the matrix space reads clearly
+    scene.backgroundIntensity=0.14; // dim so the matrix space reads clearly
     scene.remove(starfieldGrp); // real photo is better — drop generated points
     hasSkyPhoto=true;
   },
@@ -618,7 +618,7 @@ const throwVel=new THREE.Vector3();
 let grabActive=false,prevAPressed=false;
 // Pre-allocated temps (avoid per-frame allocation)
 const _cPos=new THREE.Vector3(),_cQuat=new THREE.Quaternion();
-const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_rp=new THREE.Vector3();
+const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_invQ=new THREE.Quaternion(),_rp=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
 renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;});
 
@@ -776,7 +776,8 @@ renderer.setAnimationLoop(()=>{
               throwVel.copy(_dPos).divideScalar(Math.max(dt,0.001)); // record velocity for throw
               root.position.add(_dPos);
               // Delta rotation: rotate root around the controller (grab point)
-              _dQuat.copy(_cQuat).multiply(_dQuat.copy(grabCtrlQuat).invert());
+              _invQ.copy(grabCtrlQuat).invert(); // store inverse separately — avoids aliasing bug
+              _dQuat.copy(_cQuat).multiply(_invQ);
               _rp.copy(root.position).sub(_cPos).applyQuaternion(_dQuat);
               root.position.copy(_cPos).add(_rp);
               root.quaternion.premultiply(_dQuat);
