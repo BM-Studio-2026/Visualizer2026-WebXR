@@ -263,11 +263,11 @@ reticle.rotation.x=-Math.PI/2;reticle.visible=false;scene.add(reticle);
 
 // ─── Info panel ───────────────────────────────────────────────────────────────
 
-const PANEL_W=1024,PANEL_H=920;
+const PANEL_W=1024,PANEL_H=1080;
 const panelCanvas=document.createElement('canvas');panelCanvas.width=PANEL_W;panelCanvas.height=PANEL_H;
 const panelCtx=panelCanvas.getContext('2d');
 const panelTex=new THREE.CanvasTexture(panelCanvas);
-const panelMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.62),new THREE.MeshBasicMaterial({map:panelTex,side:THREE.DoubleSide,transparent:true,depthWrite:false}));
+const panelMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.90),new THREE.MeshBasicMaterial({map:panelTex,side:THREE.DoubleSide,transparent:true,depthWrite:false}));
 panelMesh.position.set(2.4,1.6,-1.8);panelMesh.lookAt(0,1.6,0);scene.add(panelMesh);
 
 const SV_COLORS=['#00ddff','#ff44cc','#ffee00'];
@@ -336,10 +336,26 @@ function updatePanel(){
   ctx.strokeStyle='#00cccc';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+22,y-8);ctx.stroke();ctx.setLineDash([]);
   ctx.fillStyle='#44cccc';ctx.fillText('U rotation axis (stage 3)',IND+30,y);y+=32;
   y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#555577';ctx.font='17px monospace';
-  ctx.fillText('R-trigger: advance t        L-trigger: reverse t',IND,y);y+=26;
-  ctx.fillText('R-grip: next matrix         L-stick: teleport',IND,y);y+=26;
-  ctx.fillText('R-stick Y: zoom in/out',IND,y);
+  ctx.fillStyle='#7799ff';ctx.font='bold 20px monospace';
+  ctx.fillText('VR Controls',IND,y);y+=28;
+  ctx.font='17px monospace';
+  const ctrl2col='#88aadd';
+  const ctrlRows=[
+    ['#ffdd55','R trigger','→ advance t (0→3)'],
+    ['#ffdd55','L trigger','→ reverse t (3→0)'],
+    ['#ff8844','R grip','→ cycle matrix preset'],
+    ['#44ffaa','L stick click','→ teleport'],
+    ['#44ffaa','R stick Y','→ zoom in / out (0.1× – 2×)'],
+    ['#ff88ff','A button','→ grab space: drag + rotate'],
+    ['#ff88ff','A release','→ throw (momentum carry)'],
+    ['#aaaaaa','M key','→ toggle ambient music'],
+  ];
+  for(const[dot,key,desc] of ctrlRows){
+    ctx.fillStyle=dot;ctx.fillRect(IND,y-12,10,14);
+    ctx.fillStyle='#ffffff';ctx.fillText(key,IND+16,y);
+    ctx.fillStyle=ctrl2col;ctx.fillText(desc,IND+170,y);
+    y+=24;
+  }
   panelTex.needsUpdate=true;
 }
 
@@ -530,9 +546,9 @@ function rebuildScene(){
 
   // Deforming 3D grid
   buildGridBase();
-  gridMeshX=makeSegs(gridBaseX,new THREE.LineBasicMaterial({color:0x662222,transparent:true,opacity:0.35}));
-  gridMeshY=makeSegs(gridBaseY,new THREE.LineBasicMaterial({color:0x226622,transparent:true,opacity:0.35}));
-  gridMeshZ=makeSegs(gridBaseZ,new THREE.LineBasicMaterial({color:0x222288,transparent:true,opacity:0.35}));
+  gridMeshX=makeSegs(gridBaseX,new THREE.LineBasicMaterial({color:0xaa3333,transparent:true,opacity:0.75}));
+  gridMeshY=makeSegs(gridBaseY,new THREE.LineBasicMaterial({color:0x33aa33,transparent:true,opacity:0.75}));
+  gridMeshZ=makeSegs(gridBaseZ,new THREE.LineBasicMaterial({color:0x3355cc,transparent:true,opacity:0.75}));
   root.add(gridMeshX);root.add(gridMeshY);root.add(gridMeshZ);
 
   // Rotation axes
@@ -555,7 +571,7 @@ function rebuildScene(){
   // Reset pulse / trails
   if(pulseRing){root.remove(pulseRing);pulseRing=null;}pulseAge=-1;lastTFloor=0;
   initTrails();
-  updateSceneForT();updatePanel();updateHUD();
+  updateSceneForT();updatePanel();updateHUD();updateWristHUD();
 }
 
 // ─── Update scene for current t ───────────────────────────────────────────────
