@@ -348,7 +348,8 @@ function updatePanel(){
     ['#44ffaa','R stick Y','→ zoom in / out (0.1× – 2×)'],
     ['#ff88ff','A button','→ grab space: drag + rotate'],
     ['#ff88ff','A release','→ throw (momentum carry)'],
-    ['#aaaaaa','M key','→ toggle ambient music'],
+    ['#ff88ff','B button','→ toggle ambient music (VR)'],
+    ['#aaaaaa','M key','→ toggle ambient music (desktop)'],
   ];
   for(const[dot,key,desc] of ctrlRows){
     ctx.fillStyle=dot;ctx.fillRect(IND,y-12,10,14);
@@ -518,8 +519,9 @@ let svLabels=[];
 
 // ─── Rebuild scene ────────────────────────────────────────────────────────────
 
-function rebuildScene(){
+function rebuildScene(speak=false){
   root.clear();svLabels=[];
+  if(speak)speakText(`Matrix: ${PRESETS[presetIdx].name}`);
   root.add(new THREE.AxesHelper(1.8));
 
   const A=PRESETS[presetIdx].A;
@@ -546,9 +548,10 @@ function rebuildScene(){
 
   // Deforming 3D grid
   buildGridBase();
-  gridMeshX=makeSegs(gridBaseX,new THREE.LineBasicMaterial({color:0xaa3333,transparent:true,opacity:0.75}));
-  gridMeshY=makeSegs(gridBaseY,new THREE.LineBasicMaterial({color:0x33aa33,transparent:true,opacity:0.75}));
-  gridMeshZ=makeSegs(gridBaseZ,new THREE.LineBasicMaterial({color:0x3355cc,transparent:true,opacity:0.75}));
+  const gridMat=new THREE.LineBasicMaterial({color:0x1a3a8a,transparent:true,opacity:0.50});
+  gridMeshX=makeSegs(gridBaseX,gridMat);
+  gridMeshY=makeSegs(gridBaseY,gridMat);
+  gridMeshZ=makeSegs(gridBaseZ,gridMat);
   root.add(gridMeshX);root.add(gridMeshY);root.add(gridMeshZ);
 
   // Rotation axes
@@ -569,7 +572,7 @@ function rebuildScene(){
   }
 
   // Reset pulse / trails
-  if(pulseRing){root.remove(pulseRing);pulseRing=null;}pulseAge=-1;lastTFloor=0;
+  if(pulseRing){root.remove(pulseRing);pulseRing=null;}pulseAge=-1;lastTFloor=0;lastSpokenStage=-1;
   initTrails();
   updateSceneForT();updatePanel();updateHUD();updateWristHUD();
 }
@@ -716,15 +719,35 @@ function toggleMusic(){
 // Auto-start on first user interaction (browser audio policy)
 document.addEventListener('click',()=>initAudio(),{once:true});
 
+// ─── Speech synthesis ─────────────────────────────────────────────────────────
+
+const STAGE_SPEECH=[
+  'Stage 1. Rotating by V, aligning to the right singular vectors.',
+  'Stage 2. Scaling along the principal axes by the singular values.',
+  'Stage 3. Rotating by U, arriving at the final matrix.',
+];
+let lastSpokenStage=-1,speechEnabled=true;
+
+function speakText(text){
+  if(!speechEnabled||!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.88;u.pitch=1.0;u.volume=0.9;
+  window.speechSynthesis.speak(u);
+}
+
+// ─── B button state (right controller) ────────────────────────────────────────
+let prevBPressed=false;
+
 // ─── Keyboard ─────────────────────────────────────────────────────────────────
 
 const keys={};
 window.addEventListener('keydown',e=>{
   keys[e.key]=true;
-  if(e.key==='1'){presetIdx=0;tParam=0;rebuildScene();}
-  if(e.key==='2'){presetIdx=1;tParam=0;rebuildScene();}
-  if(e.key==='3'){presetIdx=2;tParam=0;rebuildScene();}
-  if(e.key.toLowerCase()==='g'){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene();}
+  if(e.key==='1'){presetIdx=0;tParam=0;rebuildScene(true);}
+  if(e.key==='2'){presetIdx=1;tParam=0;rebuildScene(true);}
+  if(e.key==='3'){presetIdx=2;tParam=0;rebuildScene(true);}
+  if(e.key.toLowerCase()==='g'){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
   if(e.key==='='||e.key==='+'){rootScale=Math.min(2.0,rootScale+0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key==='-'){rootScale=Math.max(0.1,rootScale-0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key.toLowerCase()==='m')toggleMusic();
@@ -769,7 +792,7 @@ renderer.setAnimationLoop(()=>{
 
         if(src.handedness==='right'){
           if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
-          if(grip&&!prevGripPressed){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene();}
+          if(grip&&!prevGripPressed){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
           prevGripPressed=grip;
           // Right thumbstick Y → zoom
           const stickY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
@@ -803,6 +826,10 @@ renderer.setAnimationLoop(()=>{
             grabActive=false; // release — throwVel carries the momentum
           }
           prevAPressed=aBtn;
+          // B button (buttons[5]) → toggle music (VR equivalent of M key)
+          const bBtn=src.gamepad.buttons[5]?.pressed??false;
+          if(bBtn&&!prevBPressed)toggleMusic();
+          prevBPressed=bBtn;
         }
         if(src.handedness==='left'){
           leftCtrl=ctrlGrp;
@@ -839,9 +866,10 @@ renderer.setAnimationLoop(()=>{
     const tPts=updateSceneForT();
     pushTrail(tPts);
     updatePanel();updateHUD();updateWristHUD();
-    // Stage change pulse
+    // Stage change pulse + speech
     const newFloor=Math.min(2,Math.floor(tParam));
     if(newFloor!==lastTFloor&&tParam>0.02){triggerPulse();triggerHaptics();lastTFloor=newFloor;}
+    if(newFloor!==lastSpokenStage&&tParam>0.05){speakText(STAGE_SPEECH[newFloor]);lastSpokenStage=newFloor;}
   }
 
   // Animate trails (fade out)
