@@ -168,18 +168,17 @@ scene.add(reticle);
 
 // ─── Info panel (canvas texture) ─────────────────────────────────────────────
 
-const PANEL_W=1024,PANEL_H=700;
+const PANEL_W=1024,PANEL_H=920;
 const panelCanvas=document.createElement('canvas');
 panelCanvas.width=PANEL_W;panelCanvas.height=PANEL_H;
 const panelCtx=panelCanvas.getContext('2d');
 const panelTex=new THREE.CanvasTexture(panelCanvas);
 const panelMesh=new THREE.Mesh(
-  new THREE.PlaneGeometry(1.8,1.23),
+  new THREE.PlaneGeometry(1.8,1.62),
   new THREE.MeshBasicMaterial({map:panelTex,side:THREE.DoubleSide,transparent:true,depthWrite:false})
 );
-panelMesh.position.set(2.4,1.55,-1.8);
-panelMesh.lookAt(0,1.55,-1.8);
-panelMesh.rotateY(Math.PI/2); // face inward (toward -X, i.e. toward user starting area)
+panelMesh.position.set(2.4,1.6,-1.8);
+panelMesh.lookAt(0,1.6,0); // face toward user's starting area
 scene.add(panelMesh);
 
 function drawRoundRect(ctx,x,y,w,h,r){
@@ -198,6 +197,20 @@ function stageName(t){
   return 'Stage 3 — U rotation → A';
 }
 
+// Singular-vector colors (distinct from XYZ red/green/blue)
+const SV_COLORS=['#00ddff','#ff44cc','#ffee00']; // cyan, magenta, yellow
+const SV_HEX   =[0x00ddff,  0xff44cc,  0xffee00];
+
+function divider(ctx,y,W,IND){
+  ctx.strokeStyle='rgba(80,120,255,0.22)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(IND,y);ctx.lineTo(W-IND,y);ctx.stroke();
+  return y+14;
+}
+
+function swatch(ctx,x,y,color,w=22,h=16){
+  ctx.fillStyle=color;ctx.fillRect(x,y-13,w,h);
+}
+
 function updatePanel(){
   const ctx=panelCtx,W=PANEL_W,H=PANEL_H;
   ctx.clearRect(0,0,W,H);
@@ -211,64 +224,98 @@ function updatePanel(){
   const preset=PRESETS[presetIdx];
   const A=preset.A;
   const svd=currentSVD;
-  let y=48,LH=36,IND=30;
+  let y=46,IND=30;
 
-  // Title
-  ctx.fillStyle='#7799ff';ctx.font='bold 30px monospace';
-  ctx.fillText(`Matrix: ${preset.name}`,IND,y);y+=LH+6;
+  // ── Matrix ──
+  ctx.fillStyle='#7799ff';ctx.font='bold 28px monospace';
+  ctx.fillText(`Matrix: ${preset.name}`,IND,y);y+=38;
 
-  // Matrix A
-  ctx.fillStyle='#bbccee';ctx.font='22px monospace';
+  ctx.fillStyle='#bbccee';ctx.font='21px monospace';
   ctx.fillText('A =',IND,y);
   for(let r=0;r<3;r++){
     const row=A[r].map(v=>String(v.toFixed(2)).padStart(6));
-    ctx.fillText(`[ ${row.join('  ')} ]`,IND+64,y+(r*30));
+    ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);
   }
-  y+=30*3+10;
+  y+=3*29+8;
 
-  // Divider
-  ctx.strokeStyle='rgba(80,120,255,0.25)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(IND,y);ctx.lineTo(W-IND,y);ctx.stroke();y+=16;
+  y=divider(ctx,y,W,IND);
 
-  // t + stage
-  ctx.fillStyle='#ffdd55';ctx.font='bold 26px monospace';
+  // ── t + stage ──
+  ctx.fillStyle='#ffdd55';ctx.font='bold 25px monospace';
   ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
-  ctx.fillStyle='#aaaaaa';ctx.font='24px monospace';
-  ctx.fillText(stageName(tParam),IND+155,y);y+=LH+6;
+  ctx.fillStyle='#aaaaaa';ctx.font='23px monospace';
+  ctx.fillText(stageName(tParam),IND+148,y);y+=38;
 
-  // Divider
-  ctx.strokeStyle='rgba(80,120,255,0.25)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(IND,y);ctx.lineTo(W-IND,y);ctx.stroke();y+=16;
+  y=divider(ctx,y,W,IND);
 
-  // SVD header
-  ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';
-  ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=LH+2;
+  // ── SVD ──
+  ctx.fillStyle='#88bbff';ctx.font='bold 23px monospace';
+  ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=34;
 
-  // Singular values
   if(svd){
     const sv=[svd.Sigma[0][0],svd.Sigma[1][1],svd.Sigma[2][2]];
-    ctx.fillStyle='#cccccc';ctx.font='21px monospace';
-    ctx.fillText(`σ  =  [ ${sv.map(s=>s.toFixed(3)).join(',  ')} ]`,IND,y);y+=LH;
+    ctx.fillStyle='#cccccc';ctx.font='20px monospace';
+    ctx.fillText(`σ = [ ${sv.map(s=>s.toFixed(3)).join(',  ')} ]`,IND,y);y+=32;
 
-    // V axis-angle
     const{axis:aV,angle:thV}=axisAngle(svd.V);
-    ctx.fillStyle='#cc88ff';ctx.font='21px monospace';
-    ctx.fillText(`V: ${(thV*180/Math.PI).toFixed(1)}°  axis=(${aV.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=LH;
+    ctx.fillStyle='#cc88ff';
+    ctx.fillText(`V: ${(thV*180/Math.PI).toFixed(1)}°  axis=(${aV.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=32;
 
-    // U axis-angle
     const{axis:aU,angle:thU}=axisAngle(svd.U);
     ctx.fillStyle='#44cccc';
-    ctx.fillText(`U: ${(thU*180/Math.PI).toFixed(1)}°  axis=(${aU.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=LH+6;
+    ctx.fillText(`U: ${(thU*180/Math.PI).toFixed(1)}°  axis=(${aU.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=34;
   }
 
-  // Divider
-  ctx.strokeStyle='rgba(80,120,255,0.25)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(IND,y);ctx.lineTo(W-IND,y);ctx.stroke();y+=14;
+  y=divider(ctx,y,W,IND);
 
-  // Controls
-  ctx.fillStyle='#666688';ctx.font='18px monospace';
-  ctx.fillText('R-trigger: advance t          L-trigger: reverse t',IND,y);y+=28;
-  ctx.fillText('R-grip: next matrix           L-stick click: teleport',IND,y);
+  // ── Legend ──
+  ctx.fillStyle='#88bbff';ctx.font='bold 23px monospace';
+  ctx.fillText('Legend',IND,y);y+=32;
+
+  ctx.font='19px monospace';
+
+  // XYZ axes
+  const axisEntries=[['#ff4444','X axis →'],['#44ff44','Y axis ↑'],['#4488ff','Z axis ·']];
+  for(const[col,label] of axisEntries){
+    swatch(ctx,IND,y,col);
+    ctx.fillStyle='#cccccc';ctx.fillText(label,IND+30,y);y+=27;
+  }
+
+  y+=4;
+  // Singular vectors
+  const sv=currentSVD?[currentSVD.Sigma[0][0],currentSVD.Sigma[1][1],currentSVD.Sigma[2][2]]:[1,1,1];
+  for(let i=0;i<3;i++){
+    // Draw a small arrow swatch
+    swatch(ctx,IND,y,SV_COLORS[i]);
+    ctx.fillStyle=SV_COLORS[i];
+    ctx.fillText(`v${i+1}`,IND+30,y);
+    ctx.fillStyle='#cccccc';
+    ctx.fillText(`right singular vec  σ${i+1}=${sv[i].toFixed(3)}`,IND+72,y);
+    y+=27;
+  }
+
+  y+=4;
+  // Rotation axes
+  ctx.setLineDash([8,5]);
+  ctx.strokeStyle='#aa55ff';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+22,y-8);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#cc88ff';ctx.font='19px monospace';
+  ctx.fillText('V rotation axis (stage 1)',IND+30,y);y+=27;
+
+  ctx.setLineDash([8,5]);
+  ctx.strokeStyle='#00cccc';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+22,y-8);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#44cccc';
+  ctx.fillText('U rotation axis (stage 3)',IND+30,y);y+=32;
+
+  y=divider(ctx,y,W,IND);
+
+  // ── Controls ──
+  ctx.fillStyle='#555577';ctx.font='17px monospace';
+  ctx.fillText('R-trigger: advance t        L-trigger: reverse t',IND,y);y+=26;
+  ctx.fillText('R-grip: next matrix         L-stick: teleport',IND,y);
 
   panelTex.needsUpdate=true;
 }
@@ -288,7 +335,6 @@ const matCT=new THREE.LineBasicMaterial({color:0xff3333});
 const matD=new THREE.LineBasicMaterial({color:0x5588aa,transparent:true,opacity:0.35});
 const matAV=new THREE.LineDashedMaterial({color:0xaa44ff,dashSize:0.14,gapSize:0.07,transparent:true,opacity:1});
 const matAU=new THREE.LineDashedMaterial({color:0x00cccc,dashSize:0.14,gapSize:0.07,transparent:true,opacity:0});
-const EIG_M=[new THREE.LineBasicMaterial({color:0x44ee66}),new THREE.LineBasicMaterial({color:0xffaa33}),new THREE.LineBasicMaterial({color:0xffee44})];
 
 let origGrp,transGrp,cubeOL,cubeTL,dispL,axisVL,axisUL;
 
@@ -336,12 +382,15 @@ function rebuildScene(){
   axisVL=makeAxisLine(aV,3,matAV);if(axisVL)root.add(axisVL);
   axisUL=makeAxisLine(aU,3,matAU);if(axisUL)root.add(axisUL);
 
-  // Singular-vector lines (V columns scaled by σ)
+  // Singular-vector arrows (V columns, length ∝ σᵢ)
   for(let i=0;i<3;i++){
-    const sc=Math.abs(currentSVD.Sigma[i][i])*0.9;
+    const len=Math.max(0.15, Math.abs(currentSVD.Sigma[i][i])*0.85);
     const d=currentSVD.V.map(r=>r[i]);
-    const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(d[0]*sc,d[1]*sc,d[2]*sc)]);
-    root.add(new THREE.Line(g,EIG_M[i]));
+    const dir=new THREE.Vector3(d[0],d[1],d[2]).normalize();
+    const headLen=Math.max(0.08, len*0.22);
+    const headWidth=headLen*0.55;
+    const arrow=new THREE.ArrowHelper(dir,new THREE.Vector3(0,0,0),len,SV_HEX[i],headLen,headWidth);
+    root.add(arrow);
   }
 
   updateSceneForT();
@@ -372,12 +421,8 @@ function addRay(c,col=0xffffff){
 addRay(ctrl1,0xffffff);
 addRay(ctrl2,0x44ffaa); // green ray on left = teleport pointer
 
-let rHeld=false,lHeld=false;
-ctrl1.addEventListener('selectstart',()=>rHeld=true);
-ctrl1.addEventListener('selectend',  ()=>rHeld=false);
-ctrl2.addEventListener('selectstart',()=>lHeld=true);
-ctrl2.addEventListener('selectend',  ()=>lHeld=false);
-ctrl1.addEventListener('squeezestart',()=>{presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene();});
+// All VR input is handled by handedness in the render loop (see below).
+let prevGripPressed=false;
 
 // ─── Teleportation ────────────────────────────────────────────────────────────
 
@@ -441,41 +486,54 @@ renderer.setAnimationLoop(()=>{
   const dt=Math.min(clock.getDelta(),0.05);
   let moved=false;
 
-  // Scrub t
-  if(rHeld||keys['ArrowRight']){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
-  if(lHeld||keys['ArrowLeft']) {tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
-  if(moved){updateSceneForT();updateHUD();updatePanel();}
+  // Desktop t scrub
+  if(keys['ArrowRight']){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
+  if(keys['ArrowLeft']) {tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
 
-  // Teleport raycasting (VR only)
+  // VR: all inputs by handedness
   if(renderer.xr.isPresenting){
-    tmpMatrix.identity().extractRotation(ctrl2.matrixWorld);
-    teleportRay.ray.origin.setFromMatrixPosition(ctrl2.matrixWorld);
+    const session=renderer.xr.getSession();
+    let leftCtrl=null;
+    if(session){
+      for(let i=0;i<session.inputSources.length;i++){
+        const src=session.inputSources[i];
+        if(!src.gamepad) continue;
+        const ctrlGrp=i===0?ctrl1:ctrl2;
+        const trigger  =src.gamepad.buttons[0]?.pressed??false;
+        const grip     =src.gamepad.buttons[1]?.pressed??false;
+        const thumbBtn =src.gamepad.buttons[3]?.pressed??false;
+
+        if(src.handedness==='right'){
+          if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
+          if(grip&&!prevGripPressed){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene();}
+          prevGripPressed=grip;
+        }
+        if(src.handedness==='left'){
+          leftCtrl=ctrlGrp;
+          if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
+          if(thumbBtn&&!prevThumbPressed&&teleportTarget) doTeleport(teleportTarget);
+          prevThumbPressed=thumbBtn;
+        }
+      }
+    }
+
+    // Teleport raycasting from left controller
+    const raySource=leftCtrl??ctrl2;
+    tmpMatrix.identity().extractRotation(raySource.matrixWorld);
+    teleportRay.ray.origin.setFromMatrixPosition(raySource.matrixWorld);
     teleportRay.ray.direction.set(0,0,-1).applyMatrix4(tmpMatrix);
     const hits=teleportRay.intersectObject(floorMesh);
     if(hits.length&&hits[0].distance<12){
-      reticle.position.copy(hits[0].point);
-      reticle.position.y+=0.01;
-      reticle.visible=true;
-      teleportTarget=hits[0].point.clone();
+      reticle.position.copy(hits[0].point);reticle.position.y+=0.01;
+      reticle.visible=true;teleportTarget=hits[0].point.clone();
     } else {
-      reticle.visible=false;
-      teleportTarget=null;
-    }
-
-    // Thumbstick click (button 3) on left controller
-    const session=renderer.xr.getSession();
-    if(session){
-      for(const src of session.inputSources){
-        if(src.handedness==='left'&&src.gamepad){
-          const pressed=src.gamepad.buttons[3]?.pressed??false;
-          if(pressed&&!prevThumbPressed&&teleportTarget) doTeleport(teleportTarget);
-          prevThumbPressed=pressed;
-        }
-      }
+      reticle.visible=false;teleportTarget=null;
     }
   } else {
     reticle.visible=false;
   }
+
+  if(moved){updateSceneForT();updateHUD();updatePanel();}
 
   renderer.render(scene,camera);
 });
