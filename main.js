@@ -531,7 +531,7 @@ function rebuildScene(speak=false){
 
   // InstancedMesh for original (ghost) and transformed points
   const sGeo=new THREE.SphereGeometry(0.05,8,6);
-  origIM=new THREE.InstancedMesh(sGeo,new THREE.MeshLambertMaterial({color:0x4488ff,transparent:true,opacity:0.32}),points.length);
+  origIM=new THREE.InstancedMesh(sGeo,new THREE.MeshLambertMaterial({color:0x00eeff,transparent:true,opacity:0.55}),points.length);
   transIM=new THREE.InstancedMesh(sGeo,new THREE.MeshLambertMaterial({color:0xff7722}),points.length);
   for(let i=0;i<points.length;i++){
     dummy.position.set(...points[i]);dummy.updateMatrix();
