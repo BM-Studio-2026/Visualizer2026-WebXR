@@ -181,7 +181,7 @@ const dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(5,8,5);scene.a
 
 // ─── Floor ────────────────────────────────────────────────────────────────────
 
-const floorGrid=new THREE.GridHelper(20,20,0x334455,0x223344);floorGrid.position.y=0.001;scene.add(floorGrid);
+
 const floorMesh=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
 floorMesh.rotation.x=-Math.PI/2;scene.add(floorMesh);
 const reticle=new THREE.Mesh(new THREE.RingGeometry(0.12,0.18,32),new THREE.MeshBasicMaterial({color:0x44ffaa,side:THREE.DoubleSide}));
@@ -604,8 +604,8 @@ renderer.setAnimationLoop(()=>{
           if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
           if(grip&&!prevGripPressed){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene();}
           prevGripPressed=grip;
-          // Right thumbstick Y → zoom (negative Y = stick up = zoom in)
-          const stickY=src.gamepad.axes[1]??0;
+          // Right thumbstick Y → zoom (xr-standard mapping: axes[3] = thumbstick Y)
+          const stickY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
           if(Math.abs(stickY)>0.15){
             rootScale=THREE.MathUtils.clamp(rootScale-stickY*0.9*dt,0.10,2.0);
             root.scale.setScalar(rootScale);moved=true;
