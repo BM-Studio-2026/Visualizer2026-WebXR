@@ -117,7 +117,6 @@ const EDGES=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[
 const applyM=(pts,M)=>pts.map(p=>mulVec(M,p));
 const cubePosArray=c=>EDGES.flatMap(([i,j])=>[...c[i],...c[j]]);
 const dispPosArray=(o,t)=>o.flatMap((p,i)=>[...p,...t[i]]);
-const CUBE_SOLID_IDX=[0,2,1,0,3,2,4,5,6,4,6,7,0,4,7,0,7,3,1,2,6,1,6,5,0,1,5,0,5,4,3,7,6,3,6,2];
 
 // ─── Three.js core ────────────────────────────────────────────────────────────
 
@@ -422,7 +421,7 @@ const BG_COLS=[new THREE.Color(0x0d0d1a),new THREE.Color(0x110d1f),new THREE.Col
 // ─── State ────────────────────────────────────────────────────────────────────
 
 let tParam=0,presetIdx=0,currentSVD=null,points=[],cubeCorners=[],pointColors=[];
-let origIM,transIM,cubeOL,cubeTL,dispL,axisVL,axisUL,solidCubeMesh;
+let origIM,transIM,cubeOL,cubeTL,dispL,axisVL,axisUL;
 let svLabels=[];
 
 // ─── Rebuild scene ────────────────────────────────────────────────────────────
@@ -455,15 +454,6 @@ function rebuildScene(){
   cubeOL=makeSegs(cubePosArray(cubeCorners),matCO);root.add(cubeOL);
   cubeTL=makeSegs(cubePosArray(cubeCorners),matCT);root.add(cubeTL);
   dispL =makeSegs(dispPosArray(points,points),matD);root.add(dispL);
-
-  // Transparent solid cube
-  const scPos=new Float32Array(8*3);
-  for(let i=0;i<8;i++){scPos[i*3]=cubeCorners[i][0];scPos[i*3+1]=cubeCorners[i][1];scPos[i*3+2]=cubeCorners[i][2];}
-  const scGeo=new THREE.BufferGeometry();
-  scGeo.setAttribute('position',new THREE.BufferAttribute(scPos,3));
-  scGeo.setIndex(CUBE_SOLID_IDX);
-  solidCubeMesh=new THREE.Mesh(scGeo,new THREE.MeshBasicMaterial({color:0xff6633,transparent:true,opacity:0.10,side:THREE.DoubleSide,depthWrite:false}));
-  root.add(solidCubeMesh);
 
   // Deforming 3D grid
   buildGridBase();
@@ -511,11 +501,6 @@ function updateSceneForT(){
   // Wireframes + displacement
   setLineSegs(cubeTL,cubePosArray(tCube));
   setLineSegs(dispL, dispPosArray(points,tPts));
-
-  // Solid cube face positions
-  const scPos=solidCubeMesh.geometry.attributes.position;
-  for(let i=0;i<8;i++){scPos.setXYZ(i,tCube[i][0],tCube[i][1],tCube[i][2]);}
-  scPos.needsUpdate=true;
 
   // Deforming grid
   applyMToFloatArray(M,gridBaseX,gridTmpX);setLineSegs(gridMeshX,gridTmpX);
