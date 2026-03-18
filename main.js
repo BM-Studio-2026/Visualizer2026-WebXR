@@ -143,14 +143,17 @@ composer.addPass(new OutputPass());
 scene.add(new THREE.HemisphereLight(0xffffff,0x223344,1.1));
 const dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(5,8,5);scene.add(dl);
 
-// ─── Starfield + nebula ───────────────────────────────────────────────────────
+// ─── Starfield + nebula (fallback; replaced by photo when loaded) ─────────────
+
+const starfieldGrp=new THREE.Group();scene.add(starfieldGrp);
+let hasSkyPhoto=false;
 
 (function makeStarfield(){
   function pts(pos,col,size,opacity,blending=THREE.NormalBlending){
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
     if(col) geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(col),3));
-    scene.add(new THREE.Points(geo,new THREE.PointsMaterial({
+    starfieldGrp.add(new THREE.Points(geo,new THREE.PointsMaterial({
       size,sizeAttenuation:true,transparent:true,opacity,depthWrite:false,
       vertexColors:!!col,color:col?0xffffff:0xffffff,blending
     })));
@@ -234,6 +237,20 @@ const dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(5,8,5);scene.a
     pts(pos,col,1.6,0.09,THREE.AdditiveBlending);
   }
 })();
+
+// ─── Sky photo (equirectangular, replaces generated starfield on load) ────────
+
+new THREE.TextureLoader().load('./sky.jpg',
+  (tex)=>{
+    tex.mapping=THREE.EquirectangularReflectionMapping;
+    tex.colorSpace=THREE.SRGBColorSpace;
+    scene.background=tex;
+    scene.remove(starfieldGrp); // real photo is better — drop generated points
+    hasSkyPhoto=true;
+  },
+  undefined,
+  ()=>console.warn('sky.jpg failed to load — using generated starfield')
+);
 
 // ─── Floor ────────────────────────────────────────────────────────────────────
 
@@ -570,7 +587,7 @@ function updateSceneForT(){
   const st=Math.min(2,Math.floor(tParam));
   const fr=Math.min(1,tParam-Math.floor(tParam));
   const bg=BG_COLS[st].clone().lerp(BG_COLS[Math.min(2,st+1)],fr);
-  scene.background=bg;
+  if(!hasSkyPhoto)scene.background=bg;
 
   return tPts;
 }
