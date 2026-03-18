@@ -122,7 +122,7 @@ const dispPosArray=(o,t)=>o.flatMap((p,i)=>[...p,...t[i]]);
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x0d0d1a);
-scene.fog=new THREE.FogExp2(0x0d0d1a,0.035);
+// no fog — deep space environment
 
 const camera=new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.01,200);
 camera.position.set(0,1.6,0);
@@ -152,31 +152,93 @@ const dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(5,8,5);scene.a
 // ─── Starfield + nebula ───────────────────────────────────────────────────────
 
 (function makeStarfield(){
-  function layer(n,r1,r2,sz,op,col){
-    const pos=new Float32Array(n*3);
-    for(let i=0;i<n;i++){
-      const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=r1+Math.random()*(r2-r1);
-      pos[i*3]=r*Math.sin(ph)*Math.cos(th);pos[i*3+1]=r*Math.sin(ph)*Math.sin(th);pos[i*3+2]=r*Math.cos(ph);
-    }
-    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
-    scene.add(new THREE.Points(geo,new THREE.PointsMaterial({color:col,size:sz,sizeAttenuation:true,transparent:true,opacity:op})));
+  function pts(pos,col,size,opacity,blending=THREE.NormalBlending){
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+    if(col) geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(col),3));
+    scene.add(new THREE.Points(geo,new THREE.PointsMaterial({
+      size,sizeAttenuation:true,transparent:true,opacity,depthWrite:false,
+      vertexColors:!!col,color:col?0xffffff:0xffffff,blending
+    })));
   }
-  layer(2000,88,105,0.12,0.85,0xffffff);
-  layer(500, 80,100,0.28,0.60,0xaabbff);
-  layer(120, 75, 92,0.55,0.45,0xffffff);
 
-  // Nebula band (additive)
-  const n=600,pos=new Float32Array(n*3),cols=new Float32Array(n*3);
-  const nc=[new THREE.Color(0x1133aa),new THREE.Color(0x991133),new THREE.Color(0x118855)];
-  for(let i=0;i<n;i++){
-    const th=Math.random()*Math.PI*2,r=58+Math.random()*45;
-    const bandY=(Math.random()-0.5)*18;
-    pos[i*3]=r*Math.cos(th);pos[i*3+1]=bandY;pos[i*3+2]=r*Math.sin(th);
-    const c=nc[Math.floor(Math.random()*nc.length)];
-    cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;
+  // ── 1. Background field (random sphere) ─────────────────────
+  {const n=3000,p=[];
+   for(let i=0;i<n;i++){const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=88+Math.random()*22;p.push(r*Math.sin(ph)*Math.cos(th),r*Math.sin(ph)*Math.sin(th),r*Math.cos(ph));}
+   pts(p,null,0.10,0.80);}
+
+  // ── 2. Colour-varied bright stars ───────────────────────────
+  {const n=500,p=[],c=[];
+   const cc=[[1,.95,.8],[.75,.85,1],[1,1,1],[1,.7,.45],[.6,.7,1],[.9,.6,.4]];
+   for(let i=0;i<n;i++){
+     const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=84+Math.random()*18;
+     p.push(r*Math.sin(ph)*Math.cos(th),r*Math.sin(ph)*Math.sin(th),r*Math.cos(ph));
+     const col=cc[Math.floor(Math.random()*cc.length)];c.push(...col);
+   }
+   pts(p,c,0.38,0.80);}
+
+  // ── 3. Milky Way band ────────────────────────────────────────
+  // Galactic plane: normal = (nx,ny,nz), two in-plane axes (ux,uy,uz) and (vx,vy,vz)
+  const gn=[0.18,0.92,0.35]; const gnL=Math.sqrt(gn[0]**2+gn[1]**2+gn[2]**2);
+  const[nx,ny,nz]=gn.map(x=>x/gnL);
+  // u = cross([0,1,0], n) if not parallel, else cross([1,0,0], n)
+  const tmp=Math.abs(ny)<0.85?[0,1,0]:[1,0,0];
+  const ux=tmp[1]*nz-tmp[2]*ny, uy=tmp[2]*nx-tmp[0]*nz, uz=tmp[0]*ny-tmp[1]*nx;
+  const uL=Math.sqrt(ux**2+uy**2+uz**2);
+  const[Ux,Uy,Uz]=[ux/uL,uy/uL,uz/uL];
+  // v = cross(n, u)
+  const Vx=ny*Uz-nz*Uy, Vy=nz*Ux-nx*Uz, Vz=nx*Uy-ny*Ux;
+
+  {const n=16000,p=[],c=[];
+   for(let i=0;i<n;i++){
+     const a=Math.random()*Math.PI*2;
+     // Gaussian scatter from band plane (σ≈0.055 rad ≈ 3°)
+     const sc=(Math.random()+Math.random()+Math.random()-1.5)*0.11;
+     const cosA=Math.cos(a),sinA=Math.sin(a),cosS=Math.cos(sc),sinS=Math.sin(sc)*( Math.random()<.5?1:-1);
+     const ix=cosA*Ux+sinA*Vx, iy=cosA*Uy+sinA*Vy, iz=cosA*Uz+sinA*Vz;
+     const r=83+Math.random()*24;
+     p.push(r*(cosS*ix+sinS*nx), r*(cosS*iy+sinS*ny), r*(cosS*iz+sinS*nz));
+     // Colour: warm toward galactic centre (a≈0), cool toward anti-centre (a≈π)
+     const dCenter=Math.abs(Math.cos(a)); // 1 = centre, 0 = anti-centre
+     const bright=0.35+Math.random()*0.45;
+     if(dCenter>0.7){c.push(bright,bright*0.88,bright*0.55);} // warm gold
+     else            {c.push(bright*0.7,bright*0.78,bright);} // cool blue
+   }
+   pts(p,c,0.075,0.50);}
+
+  // ── 4. Galactic centre glow (extra dense warm cluster) ──────
+  {const n=4000,p=[],c=[];
+   for(let i=0;i<n;i++){
+     const a=(Math.random()+Math.random()-1)*0.55; // Gaussian ≈ ±0.4 rad from centre
+     const sc=(Math.random()+Math.random()-1)*0.18;
+     const cosA=Math.cos(a),sinA=Math.sin(a),cosS=Math.cos(sc),sinS=Math.sin(sc)*(Math.random()<.5?1:-1);
+     const ix=cosA*Ux+sinA*Vx, iy=cosA*Uy+sinA*Vy, iz=cosA*Uz+sinA*Vz;
+     const r=80+Math.random()*28;
+     p.push(r*(cosS*ix+sinS*nx), r*(cosS*iy+sinS*ny), r*(cosS*iz+sinS*nz));
+     const w=0.55+Math.random()*0.45;
+     c.push(w,w*0.80,w*0.40);
+   }
+   pts(p,c,0.13,0.65,THREE.AdditiveBlending);}
+
+  // ── 5. Nebula patches (additive blended colour clouds) ──────
+  const patches=[
+    {cx: Ux*52, cy:Uy*52, cz:Uz*52, spread:20, col:[0.05,0.15,0.90], n:500},  // blue near centre
+    {cx:-Ux*60, cy:-Uy*60, cz:-Uz*60, spread:18, col:[0.80,0.08,0.18], n:350}, // red anti-centre
+    {cx: Vx*58, cy:Vy*58, cz:Vz*58, spread:22, col:[0.05,0.65,0.35], n:300},  // teal off-axis
+    {cx:-Vx*50+Ux*30, cy:-Vy*50+Uy*30, cz:-Vz*50+Uz*30, spread:16, col:[0.55,0.05,0.75], n:250}, // purple
+  ];
+  for(const pp of patches){
+    const pos=[],col=[];
+    for(let i=0;i<pp.n;i++){
+      const dx=(Math.random()+Math.random()-1)*pp.spread;
+      const dy=(Math.random()+Math.random()-1)*pp.spread*0.6;
+      const dz=(Math.random()+Math.random()-1)*pp.spread;
+      pos.push(pp.cx+dx, pp.cy+dy, pp.cz+dz);
+      const f=0.4+Math.random()*0.6;
+      col.push(pp.col[0]*f, pp.col[1]*f, pp.col[2]*f);
+    }
+    pts(pos,col,1.6,0.09,THREE.AdditiveBlending);
   }
-  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
-  scene.add(new THREE.Points(geo,new THREE.PointsMaterial({size:1.1,sizeAttenuation:true,transparent:true,opacity:0.13,vertexColors:true,blending:THREE.AdditiveBlending,depthWrite:false})));
 })();
 
 // ─── Floor ────────────────────────────────────────────────────────────────────
@@ -515,7 +577,7 @@ function updateSceneForT(){
   const st=Math.min(2,Math.floor(tParam));
   const fr=Math.min(1,tParam-Math.floor(tParam));
   const bg=BG_COLS[st].clone().lerp(BG_COLS[Math.min(2,st+1)],fr);
-  scene.background=bg;scene.fog.color.copy(bg);
+  scene.background=bg;
 
   return tPts;
 }
@@ -537,9 +599,17 @@ let prevGripPressed=false;
 
 // ─── Teleportation ────────────────────────────────────────────────────────────
 
-let baseRefSpace=null,teleportTarget=null,prevThumbPressed=false;
-renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();wristHUDAttached=false;});
-renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;wristHUDAttached=false;});
+let baseRefSpace=null,teleportTarget=null,prevThumbPressed=false,currentXRSession=null;
+renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
+renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;});
+
+function triggerHaptics(intensity=0.65,duration=180){
+  if(!currentXRSession)return;
+  for(const src of currentXRSession.inputSources){
+    const acts=src.gamepad?.hapticActuators;
+    if(acts?.length>0)acts[0].pulse(intensity,duration);
+  }
+}
 
 const teleportRay=new THREE.Raycaster();
 const tmpMatrix=new THREE.Matrix4();
@@ -641,7 +711,7 @@ renderer.setAnimationLoop(()=>{
     updatePanel();updateHUD();updateWristHUD();
     // Stage change pulse
     const newFloor=Math.min(2,Math.floor(tParam));
-    if(newFloor!==lastTFloor&&tParam>0.02){triggerPulse();lastTFloor=newFloor;}
+    if(newFloor!==lastTFloor&&tParam>0.02){triggerPulse();triggerHaptics();lastTFloor=newFloor;}
   }
 
   // Animate trails (fade out)
