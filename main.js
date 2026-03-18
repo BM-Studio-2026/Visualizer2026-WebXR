@@ -96,12 +96,6 @@ function buildCubeCorners(pts){
          [cx-h,cy-h,cz+h],[cx+h,cy-h,cz+h],[cx+h,cy+h,cz+h],[cx-h,cy+h,cz+h]];
 }
 
-function computePointColors(pts){
-  let xn=Infinity,yn=Infinity,zn=Infinity,xx=-Infinity,yx=-Infinity,zx=-Infinity;
-  for(const p of pts){if(p[0]<xn)xn=p[0];if(p[0]>xx)xx=p[0];if(p[1]<yn)yn=p[1];if(p[1]>yx)yx=p[1];if(p[2]<zn)zn=p[2];if(p[2]>zx)zx=p[2];}
-  const xR=xx-xn||1,yR=yx-yn||1,zR=zx-zn||1;
-  return pts.map(p=>new THREE.Color(0.15+(p[0]-xn)/xR*0.85,0.15+(p[1]-yn)/yR*0.85,0.15+(p[2]-zn)/zR*0.85));
-}
 
 function applyMToFloatArray(M,base,out){
   const n=base.length/3;
@@ -438,7 +432,9 @@ function makeLabel(text,colorStr){
 
 // ─── Trail system ─────────────────────────────────────────────────────────────
 
-const TRAIL_N=6;
+const TRAIL_N=10;
+const TRAIL_MAX_OP=0.30;
+const TRAIL_DECAY=2.2; // exponential decay rate (higher = faster fade)
 let trailPts=[],trailBufs=[],trailAges=[],trailWriteIdx=0,lastTrailT=-99;
 
 function initTrails(){
@@ -446,7 +442,7 @@ function initTrails(){
   for(let i=0;i<TRAIL_N;i++){
     const buf=new Float32Array(30*3);
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(buf.slice(),3));
-    const mat=new THREE.PointsMaterial({size:0.035,transparent:true,opacity:0,color:0xaaccff,sizeAttenuation:true,depthWrite:false});
+    const mat=new THREE.PointsMaterial({size:0.042,transparent:true,opacity:0,color:0xff9944,sizeAttenuation:true,depthWrite:false});
     const pts=new THREE.Points(geo,mat);pts.visible=false;
     root.add(pts);trailPts.push(pts);trailBufs.push(buf);trailAges.push(-1);
   }
@@ -454,7 +450,7 @@ function initTrails(){
 }
 
 function pushTrail(tPts){
-  if(Math.abs(tParam-lastTrailT)<0.05)return;
+  if(Math.abs(tParam-lastTrailT)<0.025)return;
   lastTrailT=tParam;
   const buf=trailBufs[trailWriteIdx];
   const n=Math.min(tPts.length,30);
@@ -482,7 +478,7 @@ const BG_COLS=[new THREE.Color(0x0d0d1a),new THREE.Color(0x110d1f),new THREE.Col
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let tParam=0,presetIdx=0,currentSVD=null,points=[],cubeCorners=[],pointColors=[];
+let tParam=0,presetIdx=0,currentSVD=null,points=[],cubeCorners=[];
 let origIM,transIM,cubeOL,cubeTL,dispL,axisVL,axisUL;
 let svLabels=[];
 
@@ -496,20 +492,17 @@ function rebuildScene(){
   currentSVD=makeRotationalSVD(A);
   points=genPoints(30,42);
   cubeCorners=buildCubeCorners(points);
-  pointColors=computePointColors(points);
 
   // InstancedMesh for original (ghost) and transformed points
   const sGeo=new THREE.SphereGeometry(0.05,8,6);
-  origIM=new THREE.InstancedMesh(sGeo,new THREE.MeshLambertMaterial({color:0xffffff,transparent:true,opacity:0.32}),points.length);
-  transIM=new THREE.InstancedMesh(sGeo,new THREE.MeshLambertMaterial({color:0xffffff}),points.length);
+  origIM=new THREE.InstancedMesh(sGeo,new THREE.MeshLambertMaterial({color:0x4488ff,transparent:true,opacity:0.32}),points.length);
+  transIM=new THREE.InstancedMesh(sGeo,new THREE.MeshLambertMaterial({color:0xff7722}),points.length);
   for(let i=0;i<points.length;i++){
     dummy.position.set(...points[i]);dummy.updateMatrix();
     origIM.setMatrixAt(i,dummy.matrix);transIM.setMatrixAt(i,dummy.matrix);
-    origIM.setColorAt(i,pointColors[i].clone().multiplyScalar(0.5));
-    transIM.setColorAt(i,pointColors[i]);
   }
-  origIM.instanceMatrix.needsUpdate=true;origIM.instanceColor.needsUpdate=true;
-  transIM.instanceMatrix.needsUpdate=true;transIM.instanceColor.needsUpdate=true;
+  origIM.instanceMatrix.needsUpdate=true;
+  transIM.instanceMatrix.needsUpdate=true;
   root.add(origIM);root.add(transIM);
 
   // Cube wireframes + displacement lines
@@ -718,9 +711,9 @@ renderer.setAnimationLoop(()=>{
   for(let i=0;i<TRAIL_N;i++){
     if(trailAges[i]>=0){
       trailAges[i]+=dt;
-      const op=Math.max(0,0.28-trailAges[i]*0.35);
+      const op=TRAIL_MAX_OP*Math.exp(-trailAges[i]*TRAIL_DECAY);
       trailPts[i].material.opacity=op;
-      if(op===0){trailPts[i].visible=false;trailAges[i]=-1;}
+      if(op<0.004){trailPts[i].visible=false;trailAges[i]=-1;}
     }
   }
 
