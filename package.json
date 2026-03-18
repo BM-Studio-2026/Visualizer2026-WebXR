@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "mathjs": "^15.1.1",
     "three": "^0.183.2"
   },
   "devDependencies": {
