@@ -245,6 +245,7 @@ new THREE.TextureLoader().load('./sky.jpg',
     tex.mapping=THREE.EquirectangularReflectionMapping;
     tex.colorSpace=THREE.SRGBColorSpace;
     scene.background=tex;
+    scene.backgroundIntensity=0.28; // dim so the matrix space reads clearly
     scene.remove(starfieldGrp); // real photo is better — drop generated points
     hasSkyPhoto=true;
   },
@@ -380,7 +381,7 @@ function updateHUD(){
   hud.innerHTML=`Matrix: <b>${PRESETS[presetIdx].name}</b> [1/2/3 | G]<br>`+
     `t = <b>${tParam.toFixed(2)}</b> / 3.00 &nbsp; <b>${stageName(tParam)}</b><br>`+
     `Zoom: <b>${rootScale.toFixed(2)}x</b><br>`+
-    `<span style="color:#aaa;font-size:12px">Hold ← → to scrub &nbsp;|&nbsp; VR: triggers=scrub, R-grip=matrix, L-stick=teleport, R-stick=zoom</span>`;
+    `<span style="color:#aaa;font-size:12px">Hold ← → to scrub &nbsp;|&nbsp; VR: triggers=scrub, R-grip=matrix, L-stick=teleport, R-stick=zoom, A=grab/throw &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}</span>`;
 }
 
 // ─── Root group ───────────────────────────────────────────────────────────────
@@ -610,14 +611,29 @@ let prevGripPressed=false;
 // ─── Teleportation ────────────────────────────────────────────────────────────
 
 let baseRefSpace=null,teleportTarget=null,prevThumbPressed=false,currentXRSession=null;
+
+// ─── Grab / throw state ───────────────────────────────────────────────────────
+const grabCtrlPos=new THREE.Vector3(),grabCtrlQuat=new THREE.Quaternion();
+const throwVel=new THREE.Vector3();
+let grabActive=false,prevAPressed=false;
+// Pre-allocated temps (avoid per-frame allocation)
+const _cPos=new THREE.Vector3(),_cQuat=new THREE.Quaternion();
+const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_rp=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
 renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;});
 
 function triggerHaptics(intensity=0.65,duration=180){
   if(!currentXRSession)return;
   for(const src of currentXRSession.inputSources){
-    const acts=src.gamepad?.hapticActuators;
-    if(acts?.length>0)acts[0].pulse(intensity,duration);
+    const gp=src.gamepad;if(!gp)continue;
+    // Try both haptic APIs — Quest may expose either or both
+    if(gp.hapticActuators?.length>0){
+      gp.hapticActuators[0].pulse(intensity,duration);
+    } else if(gp.vibrationActuator){
+      gp.vibrationActuator.playEffect('dual-rumble',{
+        duration,strongMagnitude:intensity,weakMagnitude:intensity*0.5
+      }).catch(()=>{});
+    }
   }
 }
 
@@ -630,6 +646,60 @@ function doTeleport(pos){
   renderer.xr.setReferenceSpace(baseRefSpace.getOffsetReferenceSpace(t));
 }
 
+// ─── Background music (Web Audio API ambient pad) ─────────────────────────────
+
+let audioCtx=null,masterGain=null,musicMuted=false;
+
+function initAudio(){
+  if(audioCtx)return;
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended')audioCtx.resume();
+
+    masterGain=audioCtx.createGain();
+    masterGain.gain.setValueAtTime(0,audioCtx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.09,audioCtx.currentTime+5);
+    masterGain.connect(audioCtx.destination);
+
+    // Warmth filter
+    const filt=audioCtx.createBiquadFilter();
+    filt.type='lowpass';filt.frequency.setValueAtTime(520,audioCtx.currentTime);
+    filt.connect(masterGain);
+
+    // Spacious delay for depth
+    const dly=audioCtx.createDelay(4.0);dly.delayTime.setValueAtTime(2.4,audioCtx.currentTime);
+    const fb=audioCtx.createGain();fb.gain.setValueAtTime(0.22,audioCtx.currentTime);
+    const wet=audioCtx.createGain();wet.gain.setValueAtTime(0.16,audioCtx.currentTime);
+    filt.connect(wet);wet.connect(dly);dly.connect(fb);fb.connect(dly);dly.connect(masterGain);
+
+    // Chord: Cmaj9 — C2 E2 G2 B2 D3 (bass register sine pads)
+    [65.41,82.41,98.00,123.47,146.83].forEach((hz,i)=>{
+      const osc=audioCtx.createOscillator(),env=audioCtx.createGain();
+      const lfo=audioCtx.createOscillator(),lfoG=audioCtx.createGain();
+      osc.type='sine';
+      osc.frequency.setValueAtTime(hz,audioCtx.currentTime);
+      osc.detune.setValueAtTime((i%2?1:-1)*2.5,audioCtx.currentTime); // micro-detune for warmth
+      env.gain.setValueAtTime(0,audioCtx.currentTime);
+      env.gain.linearRampToValueAtTime(0.20-i*0.03,audioCtx.currentTime+6+i*0.8);
+      lfo.type='sine';lfo.frequency.setValueAtTime(0.04+i*0.015,audioCtx.currentTime);
+      lfoG.gain.setValueAtTime(0.025,audioCtx.currentTime);
+      lfo.connect(lfoG);lfoG.connect(env.gain);
+      osc.connect(env);env.connect(filt);
+      osc.start();lfo.start();
+    });
+  }catch(e){console.warn('Audio init failed:',e);}
+}
+
+function toggleMusic(){
+  if(!audioCtx){initAudio();musicMuted=false;updateHUD();return;}
+  musicMuted=!musicMuted;
+  if(masterGain)masterGain.gain.setTargetAtTime(musicMuted?0:0.09,audioCtx.currentTime,0.8);
+  updateHUD();
+}
+
+// Auto-start on first user interaction (browser audio policy)
+document.addEventListener('click',()=>initAudio(),{once:true});
+
 // ─── Keyboard ─────────────────────────────────────────────────────────────────
 
 const keys={};
@@ -641,6 +711,7 @@ window.addEventListener('keydown',e=>{
   if(e.key.toLowerCase()==='g'){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene();}
   if(e.key==='='||e.key==='+'){rootScale=Math.min(2.0,rootScale+0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key==='-'){rootScale=Math.max(0.1,rootScale-0.1);root.scale.setScalar(rootScale);updateHUD();}
+  if(e.key.toLowerCase()==='m')toggleMusic();
 });
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 window.addEventListener('resize',()=>{
@@ -684,12 +755,37 @@ renderer.setAnimationLoop(()=>{
           if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
           if(grip&&!prevGripPressed){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene();}
           prevGripPressed=grip;
-          // Right thumbstick Y → zoom (xr-standard mapping: axes[3] = thumbstick Y)
+          // Right thumbstick Y → zoom
           const stickY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
           if(Math.abs(stickY)>0.15){
             rootScale=THREE.MathUtils.clamp(rootScale-stickY*0.9*dt,0.10,2.0);
             root.scale.setScalar(rootScale);moved=true;
           }
+          // A button (buttons[4]) → grab, drag, rotate, throw
+          const aBtn=src.gamepad.buttons[4]?.pressed??false;
+          if(aBtn){
+            _cPos.setFromMatrixPosition(ctrlGrp.matrixWorld);
+            _cQuat.setFromRotationMatrix(ctrlGrp.matrixWorld);
+            if(!prevAPressed){
+              // Grab start — record controller pose, reset throw velocity
+              grabCtrlPos.copy(_cPos);grabCtrlQuat.copy(_cQuat);
+              throwVel.set(0,0,0);grabActive=true;
+            } else if(grabActive){
+              // Delta position: move root with the hand
+              _dPos.copy(_cPos).sub(grabCtrlPos);
+              throwVel.copy(_dPos).divideScalar(Math.max(dt,0.001)); // record velocity for throw
+              root.position.add(_dPos);
+              // Delta rotation: rotate root around the controller (grab point)
+              _dQuat.copy(_cQuat).multiply(_dQuat.copy(grabCtrlQuat).invert());
+              _rp.copy(root.position).sub(_cPos).applyQuaternion(_dQuat);
+              root.position.copy(_cPos).add(_rp);
+              root.quaternion.premultiply(_dQuat);
+              grabCtrlPos.copy(_cPos);grabCtrlQuat.copy(_cQuat);
+            }
+          } else if(prevAPressed){
+            grabActive=false; // release — throwVel carries the momentum
+          }
+          prevAPressed=aBtn;
         }
         if(src.handedness==='left'){
           leftCtrl=ctrlGrp;
@@ -713,6 +809,13 @@ renderer.setAnimationLoop(()=>{
       reticle.visible=true;teleportTarget=hits[0].point.clone();
     } else {reticle.visible=false;teleportTarget=null;}
   } else {reticle.visible=false;}
+
+  // Throw physics — apply velocity with exponential damping
+  if(!grabActive&&throwVel.lengthSq()>0.005){
+    root.position.addScaledVector(throwVel,dt);
+    throwVel.multiplyScalar(Math.max(0,1-6*dt));
+    if(throwVel.lengthSq()<0.005)throwVel.set(0,0,0);
+  }
 
   // Handle move: update scene, trails, panel, HUD, pulse
   if(moved){
