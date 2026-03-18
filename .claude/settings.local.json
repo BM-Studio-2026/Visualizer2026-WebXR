@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(npm run:*)",
+      "Bash(cp -r D:/Visualizer2026-WebXR/dist/. D:/gh-pages-deploy/)",
+      "Read(//d/gh-pages-deploy/**)"
+    ]
+  }
+}
