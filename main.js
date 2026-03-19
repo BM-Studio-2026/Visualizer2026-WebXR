@@ -1048,7 +1048,7 @@ function buildScenario2(speak){
   const squareW=makeSegs(squarePosFlat(squareC),matCO);
   const squareR=makeSegs(squarePosFlat(squareC),matCT);
   root.add(squareW);root.add(squareR);
-  s2Data={svd,pts2d,tIM,squareC,squareR,A};
+  s2Data={svd,pts2d,tIM,squareC,squareR,squareW,A};
   initTrails();updateScenario2();updatePanel();updateHUD();updateWristHUD();
 }
 
@@ -1058,6 +1058,7 @@ function updateScenario2(){
   updateIM(s2Data.tIM,tPts);
   const tSquare=pathScen2(s2Data.squareC,tParam,s2Data.svd);
   setLineSegs(s2Data.squareR,squarePos3D(tSquare));
+  s2Data.squareW.visible=tParam<0.01;
   return tPts;
 }
 
