@@ -463,6 +463,7 @@ function divider(ctx,y,W,IND){
 function swatch(ctx,x,y,color,w=22,h=16){ctx.fillStyle=color;ctx.fillRect(x,y-13,w,h);}
 
 function updatePanel(){
+  if(planeEditMode&&scenarioMode===4){drawEditPanel();return;}
   const ctx=panelCtx,W=PANEL_W,H=PANEL_H;
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='rgba(8,8,24,0.93)';drawRoundRect(ctx,0,0,W,H,28);ctx.fill();
@@ -601,7 +602,7 @@ function updatePanel(){
       ['#ffdd55','R trigger','→ advance t (0→3)'],['#ffdd55','L trigger','→ reverse t (3→0)'],
       ['#ff8844','R grip','→ cycle 3×3 matrix'],['#44ffcc','L stick ←→','→ cycle scenario mode'],
       ['#44ffaa','L stick click','→ teleport'],['#44ffaa','R stick Y','→ zoom'],
-      ['#ff88ff','A button','→ grab/rotate/throw'],['#ff88ff','B button','→ music toggle'],
+      ['#ff88ff','A button','→ grab/rotate/throw'],['#ffaa44','B button (mode 4)','→ plane editor'],
       ['#aaaaaa','S key','→ cycle scenario (desktop)'],
     ]){
       ctx.fillStyle=dot;ctx.fillRect(IND,y-12,10,14);
@@ -663,9 +664,8 @@ function updatePanel(){
     ['#44ffaa','R stick Y','→ zoom in / out (0.1× – 2×)'],
     ['#ff88ff','A button','→ grab space: drag + rotate'],
     ['#ff88ff','A release','→ throw (momentum carry)'],
-    ['#ff88ff','B button','→ toggle ambient music (VR)'],
+    ['#ffaa44','B button (mode 4)','→ open plane equation editor'],
     ['#44ffcc','L stick ←→','→ right=next / left=prev scenario'],
-    ['#aaaaaa','M key','→ toggle ambient music (desktop)'],
     ['#aaaaaa','S key','→ cycle scenario (desktop)'],
   ];
   for(const[dot,key,desc] of ctrlRows){
@@ -773,10 +773,74 @@ function updateWristHUD(){
   }
   wDiv();
   // ── Quick-reference tip ───────────────────────────────────────────────────────
-  ctx.fillStyle='#445566';ctx.font='13px monospace';
-  ctx.fillText(scenarioMode===4?'R-trig: +plane   L-trig: \u2212plane   L-stick\u2194: mode'
-    :'R-trig: fwd   L-trig: rev   L-stick\u2194: mode',P,y+12);
+  if(planeEditMode&&scenarioMode===4){
+    ctx.fillStyle='#ffaa44';ctx.font='bold 16px monospace';
+    ctx.fillText(`EDITING P${planeEditRow+1} \u00b7 ${'ABCD'[planeEditCol]}  = ${s4PlanesCustom[planeEditRow][planeEditCol].toFixed(1)}`,P,y+12);
+  } else {
+    ctx.fillStyle='#445566';ctx.font='13px monospace';
+    ctx.fillText(scenarioMode===4?'R-trig: +plane   L-trig: \u2212plane   L-stick\u2194: mode'
+      :'R-trig: fwd   L-trig: rev   L-stick\u2194: mode',P,y+12);
+  }
   wristTex.needsUpdate=true;
+}
+
+// ─── Plane editor (VR, mode 4) ────────────────────────────────────────────────
+
+let planeEditMode=false,planeEditRow=0,planeEditCol=0;
+let editPrevStickX=false,editPrevStickY=false,editPrevLGrip=false;
+
+function drawEditPanel(){
+  const ctx=panelCtx,W=PANEL_W,H=PANEL_H,IND=30;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='rgba(8,8,24,0.97)';drawRoundRect(ctx,0,0,W,H,28);ctx.fill();
+  ctx.strokeStyle='rgba(255,160,60,0.7)';ctx.lineWidth=3;drawRoundRect(ctx,2,2,W-4,H-4,28);ctx.stroke();
+  let y=58;
+  ctx.fillStyle='#ffaa44';ctx.font='bold 46px monospace';ctx.fillText('PLANE  EDITOR',IND,y);y+=54;
+  ctx.fillStyle='#888888';ctx.font='22px monospace';ctx.fillText('Ax + By + Cz = D',IND,y);y+=34;
+  y=divider(ctx,y,W,IND);
+  // Column headers
+  const CX=[150,350,550,750];
+  ctx.fillStyle='#aaaaaa';ctx.font='bold 24px monospace';
+  ctx.fillText('Plane',IND,y);
+  for(let c=0;c<4;c++)ctx.fillText('ABCD'[c],CX[c],y);
+  y+=8;y=divider(ctx,y,W,IND);
+  // Rows
+  for(let r=0;r<5;r++){
+    const selRow=r===planeEditRow;
+    if(selRow){ctx.fillStyle='rgba(255,160,60,0.10)';ctx.fillRect(IND-6,y-26,W-IND,42);}
+    ctx.fillStyle=selRow?'#ffaa44':'#444455';ctx.font='bold 26px monospace';
+    ctx.fillText(selRow?'\u25b6':' ',IND,y);
+    ctx.fillStyle=S4_CSS_COLORS[r];ctx.font='bold 26px monospace';
+    ctx.fillText(`P${r+1}`,IND+28,y);
+    for(let c=0;c<4;c++){
+      const selCell=selRow&&c===planeEditCol;
+      const val=s4PlanesCustom[r][c];
+      const str=val.toFixed(1);
+      if(selCell){
+        const tw=ctx.measureText(str).width;
+        ctx.fillStyle='rgba(255,220,80,0.28)';ctx.fillRect(CX[c]-7,y-24,tw+14,32);
+        ctx.fillStyle='#ffee44';ctx.font='bold 26px monospace';
+      } else {
+        ctx.fillStyle=selRow?'#cccccc':'#778899';ctx.font='26px monospace';
+      }
+      ctx.fillText(str,CX[c],y);
+    }
+    y+=42;
+  }
+  y+=6;y=divider(ctx,y,W,IND);
+  ctx.fillStyle='#aaddff';ctx.font='bold 24px monospace';ctx.fillText('Controls',IND,y);y+=32;
+  ctx.font='21px monospace';
+  for(const[dot,key,desc] of[
+    ['#ffaa44','L stick \u2191\u2193','  +0.5 / \u22120.5 on selected value'],
+    ['#ffaa44','L stick \u2190\u2192','  select A / B / C / D column'],
+    ['#ffaa44','L grip',  '  cycle to next plane (P1\u2192P5)'],
+    ['#ff88ff','B button','  exit editor'],
+  ]){
+    ctx.fillStyle=dot;ctx.fillRect(IND,y-16,10,18);
+    ctx.fillStyle='#ffffff';ctx.fillText(key,IND+18,y);
+    ctx.fillStyle='#88aadd';ctx.fillText(desc,IND+290,y);y+=28;
+  }
+  panelTex.needsUpdate=true;
 }
 
 // ─── Desktop HUD ──────────────────────────────────────────────────────────────
@@ -795,8 +859,9 @@ function updateHUD(){
     ?`t = <b>${tParam.toFixed(2)}</b> / 3.00 &nbsp; <b>${stageName(tParam)}</b><br>`
     :`t = <b>${s4t.toFixed(2)}</b> &nbsp; <b>${stageName(tParam)}</b><br>`;
   const ctrlHint=scenarioMode!==4
-    ?`← →=scrub &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; G=matrix &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}`
-    :`← →=add/remove plane &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}`;
+    ?`← →=scrub &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; G=matrix`
+    :planeEditMode?`L-stick ↑↓: ±0.5 &nbsp;|&nbsp; L-stick ←→: column &nbsp;|&nbsp; L-grip: plane &nbsp;|&nbsp; B: exit editor`
+    :`← →=add/remove plane &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; B=plane editor`;
   hud.innerHTML=`${modeName}<br>${tLine}Zoom: <b>${rootScale.toFixed(2)}x</b><br>`+
     `<span style="color:#aaa;font-size:12px">${ctrlHint}</span>`;
   if(s4InputPanel)s4InputPanel.style.display=(scenarioMode===4&&!renderer.xr.isPresenting)?'block':'none';
@@ -1455,59 +1520,6 @@ function doTeleport(pos){
   renderer.xr.setReferenceSpace(baseRefSpace.getOffsetReferenceSpace(t));
 }
 
-// ─── Background music (Web Audio API ambient pad) ─────────────────────────────
-
-let audioCtx=null,masterGain=null,musicMuted=false;
-
-function initAudio(){
-  if(audioCtx)return;
-  try{
-    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended')audioCtx.resume();
-
-    masterGain=audioCtx.createGain();
-    masterGain.gain.setValueAtTime(0,audioCtx.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0.09,audioCtx.currentTime+5);
-    masterGain.connect(audioCtx.destination);
-
-    // Warmth filter
-    const filt=audioCtx.createBiquadFilter();
-    filt.type='lowpass';filt.frequency.setValueAtTime(520,audioCtx.currentTime);
-    filt.connect(masterGain);
-
-    // Spacious delay for depth
-    const dly=audioCtx.createDelay(4.0);dly.delayTime.setValueAtTime(2.4,audioCtx.currentTime);
-    const fb=audioCtx.createGain();fb.gain.setValueAtTime(0.22,audioCtx.currentTime);
-    const wet=audioCtx.createGain();wet.gain.setValueAtTime(0.16,audioCtx.currentTime);
-    filt.connect(wet);wet.connect(dly);dly.connect(fb);fb.connect(dly);dly.connect(masterGain);
-
-    // Chord: Cmaj9 — C2 E2 G2 B2 D3 (bass register sine pads)
-    [65.41,82.41,98.00,123.47,146.83].forEach((hz,i)=>{
-      const osc=audioCtx.createOscillator(),env=audioCtx.createGain();
-      const lfo=audioCtx.createOscillator(),lfoG=audioCtx.createGain();
-      osc.type='sine';
-      osc.frequency.setValueAtTime(hz,audioCtx.currentTime);
-      osc.detune.setValueAtTime((i%2?1:-1)*2.5,audioCtx.currentTime); // micro-detune for warmth
-      env.gain.setValueAtTime(0,audioCtx.currentTime);
-      env.gain.linearRampToValueAtTime(0.20-i*0.03,audioCtx.currentTime+6+i*0.8);
-      lfo.type='sine';lfo.frequency.setValueAtTime(0.04+i*0.015,audioCtx.currentTime);
-      lfoG.gain.setValueAtTime(0.025,audioCtx.currentTime);
-      lfo.connect(lfoG);lfoG.connect(env.gain);
-      osc.connect(env);env.connect(filt);
-      osc.start();lfo.start();
-    });
-  }catch(e){console.warn('Audio init failed:',e);}
-}
-
-function toggleMusic(){
-  if(!audioCtx){initAudio();musicMuted=false;updateHUD();return;}
-  musicMuted=!musicMuted;
-  if(masterGain)masterGain.gain.setTargetAtTime(musicMuted?0:0.09,audioCtx.currentTime,0.8);
-  updateHUD();
-}
-
-// Auto-start on first user interaction (browser audio policy)
-document.addEventListener('click',()=>initAudio(),{once:true});
 
 // ─── Speech synthesis ─────────────────────────────────────────────────────────
 
@@ -1543,8 +1555,7 @@ window.addEventListener('keydown',e=>{
   if(e.key.toLowerCase()==='g'){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
   if(e.key==='='||e.key==='+'){rootScale=Math.min(2.0,rootScale+0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key==='-'){rootScale=Math.max(0.1,rootScale-0.1);root.scale.setScalar(rootScale);updateHUD();}
-  if(e.key.toLowerCase()==='m')toggleMusic();
-  if(e.key.toLowerCase()==='s'){scenarioMode=(scenarioMode+1)%5;tParam=0;rebuildScene(true);}
+  if(e.key.toLowerCase()==='s'){scenarioMode=(scenarioMode+1)%5;planeEditMode=false;tParam=0;rebuildScene(true);}
   // Mode 4 discrete plane add/remove via arrow keys
   if(e.key==='ArrowRight'&&scenarioMode===4&&s4Data&&s4Data.planeCount<5){
     s4Data.animFrom=s4Data.lsSphere.position.toArray();
@@ -1644,39 +1655,73 @@ renderer.setAnimationLoop(()=>{
             grabActive=false; // release — throwVel carries the momentum
           }
           prevAPressed=aBtn;
-          // B button (buttons[5]) → toggle music (VR equivalent of M key)
+          // B button → toggle plane editor (mode 4 only)
           const bBtn=src.gamepad.buttons[5]?.pressed??false;
-          if(bBtn&&!prevBPressed)toggleMusic();
+          if(bBtn&&!prevBPressed&&scenarioMode===4){
+            planeEditMode=!planeEditMode;
+            triggerHaptics(0.4,100);
+            updatePanel();updateHUD();updateWristHUD();
+          }
           prevBPressed=bBtn;
         }
         if(src.handedness==='left'){
           leftCtrl=ctrlGrp;
-          if(scenarioMode===4){
-            if(trigger&&!s4PrevLeftTrig&&s4Data&&s4Data.planeCount>3){
-              s4Data.animFrom=s4Data.lsSphere.position.toArray();
-              s4Data.planeCount--;
-              s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
-              s4Data.animProgress=0;triggerHaptics(0.5,120);moved=true;
-            }
-            s4PrevLeftTrig=trigger;
+          if(planeEditMode&&scenarioMode===4){
+            // ── Plane editor controls ──────────────────────────────────────────
+            const lsX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
+            const lsY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
+            // Left/right → select column (A B C D)
+            if(lsX>0.5&&!editPrevStickX){
+              planeEditCol=(planeEditCol+1)%4;
+              editPrevStickX=true;triggerHaptics(0.25,50);
+              updatePanel();updateWristHUD();
+            } else if(lsX<-0.5&&!editPrevStickX){
+              planeEditCol=(planeEditCol+3)%4;
+              editPrevStickX=true;triggerHaptics(0.25,50);
+              updatePanel();updateWristHUD();
+            } else if(Math.abs(lsX)<0.3) editPrevStickX=false;
+            // Up/down → ±0.5 on selected coefficient
+            if(lsY<-0.5&&!editPrevStickY){
+              s4PlanesCustom[planeEditRow][planeEditCol]+=0.5;
+              editPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(lsY>0.5&&!editPrevStickY){
+              s4PlanesCustom[planeEditRow][planeEditCol]-=0.5;
+              editPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(Math.abs(lsY)<0.3) editPrevStickY=false;
+            // Left grip → cycle to next plane
+            if(grip&&!editPrevLGrip){
+              planeEditRow=(planeEditRow+1)%5;
+              editPrevLGrip=true;triggerHaptics(0.3,60);
+              updatePanel();updateWristHUD();
+            } else if(!grip) editPrevLGrip=false;
           } else {
-            if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
-          }
-          if(thumbBtn&&!prevThumbPressed&&teleportTarget)doTeleport(teleportTarget);
-          prevThumbPressed=thumbBtn;
-          // Left thumbstick X → cycle scenario (right = next, left = previous)
-          // axes[2]=thumbstick X, axes[3]=thumbstick Y on Meta Quest (axes[0/1] are touchpad, always 0)
-          const leftStickX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
-          if(leftStickX>0.5&&!prevLeftStickTriggered){
-            scenarioMode=(scenarioMode+1)%5;
-            tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
-            prevLeftStickTriggered=true;
-          } else if(leftStickX<-0.5&&!prevLeftStickTriggered){
-            scenarioMode=(scenarioMode+4)%5;
-            tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
-            prevLeftStickTriggered=true;
-          } else if(Math.abs(leftStickX)<0.3){
-            prevLeftStickTriggered=false;
+            // ── Normal controls ────────────────────────────────────────────────
+            if(scenarioMode===4){
+              if(trigger&&!s4PrevLeftTrig&&s4Data&&s4Data.planeCount>3){
+                s4Data.animFrom=s4Data.lsSphere.position.toArray();
+                s4Data.planeCount--;
+                s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
+                s4Data.animProgress=0;triggerHaptics(0.5,120);moved=true;
+              }
+              s4PrevLeftTrig=trigger;
+            } else {
+              if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
+            }
+            if(thumbBtn&&!prevThumbPressed&&teleportTarget)doTeleport(teleportTarget);
+            prevThumbPressed=thumbBtn;
+            // Left thumbstick X → cycle scenario
+            const leftStickX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
+            if(leftStickX>0.5&&!prevLeftStickTriggered){
+              scenarioMode=(scenarioMode+1)%5;planeEditMode=false;
+              tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
+              prevLeftStickTriggered=true;
+            } else if(leftStickX<-0.5&&!prevLeftStickTriggered){
+              scenarioMode=(scenarioMode+4)%5;planeEditMode=false;
+              tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
+              prevLeftStickTriggered=true;
+            } else if(Math.abs(leftStickX)<0.3){
+              prevLeftStickTriggered=false;
+            }
           }
           // Attach wrist HUD to left controller once
           if(!wristHUDAttached){ctrlGrp.add(wristMesh);wristHUDAttached=true;}
