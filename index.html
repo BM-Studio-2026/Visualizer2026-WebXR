@@ -3,72 +3,366 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Visualizer2026 WebXR</title>
-  <meta name="description" content="WebXR extension of Visualizer2026, exploring immersive visualization for linear algebra and interactive mathematics." />
+  <title>Visualizer2026 WebXR — Linear Algebra in VR</title>
+  <meta name="description" content="Stand inside a matrix transformation. SVD, PCA, and least squares visualized immersively in WebXR. Runs on Meta Quest — no installation required." />
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 40px auto;
-      padding: 0 20px;
-      line-height: 1.6;
-      color: #222;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #08081a;
+      color: #ccd6f6;
+      line-height: 1.7;
+      min-height: 100vh;
     }
-    h1, h2 {
-      color: #111;
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 72px 24px 56px;
+      background: linear-gradient(180deg, #0d0d2b 0%, #08081a 100%);
+      border-bottom: 1px solid #1a2a5a;
     }
-    a {
-      color: #0b57d0;
+    .hero-label {
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #4a6fa5;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 700;
+      color: #e8f0ff;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+    .hero h1 span { color: #5b9cf6; }
+    .hero p {
+      max-width: 620px;
+      margin: 0 auto 36px;
+      font-size: 1.1rem;
+      color: #8899bb;
+    }
+    .btn-launch {
+      display: inline-block;
+      background: #2563eb;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 16px 40px;
+      border-radius: 8px;
       text-decoration: none;
+      letter-spacing: 0.3px;
+      transition: background 0.2s, transform 0.15s;
+      box-shadow: 0 4px 24px rgba(37,99,235,0.35);
     }
-    a:hover {
-      text-decoration: underline;
+    .btn-launch:hover { background: #1d4ed8; transform: translateY(-2px); }
+    .hero-note {
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: #4a5a7a;
     }
-    .box {
-      background: #f7f7f7;
-      padding: 18px 20px;
+
+    /* ── Content wrapper ── */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Section ── */
+    section { padding: 52px 0 16px; }
+    section + section { border-top: 1px solid #111e3a; }
+    h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #7bb3ff;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    /* ── Scenarios grid ── */
+    .scenarios {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .scenario-card {
+      background: #0d1228;
+      border: 1px solid #1e2e55;
       border-radius: 10px;
-      margin: 20px 0;
+      padding: 20px 22px;
+    }
+    .scenario-card .badge {
+      display: inline-block;
+      background: #192040;
+      color: #5b9cf6;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .scenario-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #dce8ff;
+      margin-bottom: 6px;
+    }
+    .scenario-card p {
+      font-size: 0.88rem;
+      color: #7a8aaa;
+    }
+
+    /* ── SVD stages ── */
+    .stages {
+      display: flex;
+      gap: 0;
+      border: 1px solid #1e2e55;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .stage {
+      flex: 1;
+      padding: 20px 18px;
+      background: #0d1228;
+      border-right: 1px solid #1e2e55;
+    }
+    .stage:last-child { border-right: none; }
+    .stage .t { font-size: 0.78rem; color: #4a6fa5; font-weight: 600; margin-bottom: 6px; }
+    .stage h3 { font-size: 0.95rem; font-weight: 700; color: #c0d4ff; margin-bottom: 6px; }
+    .stage p { font-size: 0.83rem; color: #6a7a99; }
+
+    /* ── Controls table ── */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 20px;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+    .ctrl-key {
+      background: #0d1228;
+      border: 1px solid #1e2e55;
+      border-radius: 5px;
+      padding: 4px 12px;
+      font-family: monospace;
+      font-size: 0.82rem;
+      color: #7bb3ff;
+      white-space: nowrap;
+      align-self: center;
+    }
+    .ctrl-desc { color: #8899bb; align-self: center; }
+
+    /* ── Tech pills ── */
+    .tech-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .tech-pill {
+      background: #0d1228;
+      border: 1px solid #1e2e55;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.84rem;
+      color: #8899bb;
+    }
+    .tech-pill strong { color: #c0d4ff; }
+
+    /* ── Links ── */
+    .link-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-bottom: 52px;
+    }
+    .link-row a {
+      color: #5b9cf6;
+      text-decoration: none;
+      font-size: 0.92rem;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+    .link-row a:hover { border-color: #5b9cf6; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 0.78rem;
+      color: #2a3a5a;
+      border-top: 1px solid #111e3a;
+    }
+
+    @media (max-width: 600px) {
+      .stages { flex-direction: column; }
+      .stage { border-right: none; border-bottom: 1px solid #1e2e55; }
+      .stage:last-child { border-bottom: none; }
     }
   </style>
 </head>
 <body>
-  <h1>Visualizer2026 WebXR</h1>
-  <p>
-    This repository is the WebXR and immersive VR extension of the Visualizer2026 project.
-    It is designed to explore how linear algebra concepts can be experienced in interactive
-    3D and VR environments.
-  </p>
 
-  <div class="box">
-    <h2>Project Status</h2>
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-label">BM Studio 2026 · WebXR</div>
+    <h1>Visualizer2026 <span>WebXR</span></h1>
     <p>
-      This WebXR module is currently under development. The public landing page is available now,
-      and the interactive VR experience will be linked here in a future update.
+      Stand inside a matrix transformation. SVD, PCA, and least squares
+      visualized immersively in virtual reality — running entirely in your browser.
     </p>
+    <a class="btn-launch" href="https://bm-studio-2026.github.io/Visualizer2026-WebXR/vr.html">
+      Launch VR Demo →
+    </a>
+    <div class="hero-note">
+      Optimized for Meta Quest 2 / 3 · Also works in any WebXR-capable browser<br>
+      No installation · No app store · Open and enter VR
+    </div>
   </div>
 
-  <h2>Planned Features</h2>
-  <ul>
-    <li>Immersive visualization of vectors and matrix transformations</li>
-    <li>Interactive manipulation of 3D coordinate systems</li>
-    <li>WebXR support for VR headsets such as Meta Quest</li>
-    <li>Educational demonstrations connecting geometry and linear algebra</li>
-  </ul>
+  <div class="container">
 
-  <h2>Related Links</h2>
-  <ul>
-    <li><a href="https://bm-studio-2026.github.io/Visualizer2026/">Main Visualizer2026 Project</a></li>
-    <li><a href="https://github.com/bm-studio-2026/Visualizer2026">Main GitHub Repository</a></li>
-  </ul>
+    <!-- Scenarios -->
+    <section>
+      <h2>Five Mathematical Scenarios</h2>
+      <p style="color:#7a8aaa; margin-bottom:20px; font-size:0.92rem;">
+        Cycle through modes with the <strong style="color:#c0d4ff;">left grip button</strong> (VR)
+        or <strong style="color:#c0d4ff;">S key</strong> (desktop).
+      </p>
+      <div class="scenarios">
+        <div class="scenario-card">
+          <div class="badge">Mode 0</div>
+          <h3>3×3 SVD</h3>
+          <p>A 3D point cloud and deforming grid animate through the full SVD decomposition. Three presets: Symmetric, Rotation+Scale, Shear+Scale.</p>
+        </div>
+        <div class="scenario-card">
+          <div class="badge">Mode 1</div>
+          <h3>2×3 Projection &nbsp; R³→R²</h3>
+          <p>A 3D cube collapses flat onto a tilted image plane as the transformation reduces dimension from 3D to 2D.</p>
+        </div>
+        <div class="scenario-card">
+          <div class="badge">Mode 2</div>
+          <h3>3×2 Lifting &nbsp; R²→R³</h3>
+          <p>A flat 2D square rotates and lifts into 3D space, showing how a non-square matrix maps a plane into a higher-dimensional space.</p>
+        </div>
+        <div class="scenario-card">
+          <div class="badge">Mode 3</div>
+          <h3>3D PCA</h3>
+          <p>A 60-point ellipsoidal cloud aligns to its principal axes, then squashes to the best-fit plane, then to the best-fit line.</p>
+        </div>
+        <div class="scenario-card">
+          <div class="badge">Mode 4</div>
+          <h3>Least Squares</h3>
+          <p>Four overdetermined planes in 3D space. A glowing sphere marks the least-squares solution; white lines show the perpendicular residual to each plane.</p>
+        </div>
+      </div>
+    </section>
 
-  <h2>Future Demo</h2>
-  <p>
-    The live WebXR demo will be added here when ready.
-  </p>
-  <h2>Live Demo</h2>
-  <p>
-    <a href="./vr.html">Launch WebXR Demo</a>
-  </p>
+    <!-- SVD animation -->
+    <section>
+      <h2>The SVD Animation</h2>
+      <p style="color:#7a8aaa; margin-bottom:20px; font-size:0.92rem;">
+        Parameter <strong style="color:#c0d4ff;">t ∈ [0, 3]</strong> drives a smooth
+        three-stage decomposition of any matrix A = U Σ Vᵀ.
+        Scrub with the VR triggers or desktop arrow keys.
+      </p>
+      <div class="stages">
+        <div class="stage">
+          <div class="t">t = 0 → 1</div>
+          <h3>Stage 1 &mdash; V rotation</h3>
+          <p>The point cloud rotates to align with the right singular vectors.</p>
+        </div>
+        <div class="stage">
+          <div class="t">t = 1 → 2</div>
+          <h3>Stage 2 &mdash; Σ scaling</h3>
+          <p>Each axis stretches or compresses by its singular value.</p>
+        </div>
+        <div class="stage">
+          <div class="t">t = 2 → 3</div>
+          <h3>Stage 3 &mdash; U rotation</h3>
+          <p>A final rotation by U completes the full matrix transformation.</p>
+        </div>
+      </div>
+      <p style="font-size:0.85rem; color:#4a5a7a;">
+        Each stage boundary triggers haptic feedback on both controllers and a visual pulse ring expanding outward from the origin.
+      </p>
+    </section>
+
+    <!-- Controls -->
+    <section>
+      <h2>VR Controls</h2>
+      <div class="controls-grid">
+        <span class="ctrl-key">Right trigger</span>
+        <span class="ctrl-desc">Advance t → animate the transformation forward</span>
+        <span class="ctrl-key">Left trigger</span>
+        <span class="ctrl-desc">Reverse t → animate backward</span>
+        <span class="ctrl-key">Right grip</span>
+        <span class="ctrl-desc">Cycle 3×3 matrix preset (mode 0)</span>
+        <span class="ctrl-key">Left grip</span>
+        <span class="ctrl-desc">Cycle through all five scenario modes</span>
+        <span class="ctrl-key">R thumbstick Y</span>
+        <span class="ctrl-desc">Zoom in / out</span>
+        <span class="ctrl-key">A button</span>
+        <span class="ctrl-desc">Grab, drag, rotate and throw the scene</span>
+        <span class="ctrl-key">B button</span>
+        <span class="ctrl-desc">Toggle ambient music</span>
+        <span class="ctrl-key">L thumbstick click</span>
+        <span class="ctrl-desc">Teleport to aimed floor position</span>
+      </div>
+      <p style="font-size:0.85rem; color:#4a5a7a;">
+        Desktop: ← → keys scrub t &nbsp;·&nbsp; 1/2/3 or G = cycle matrix &nbsp;·&nbsp;
+        S = cycle scenario &nbsp;·&nbsp; +/− = zoom &nbsp;·&nbsp; M = music
+      </p>
+    </section>
+
+    <!-- Technology -->
+    <section>
+      <h2>Technology</h2>
+      <div class="tech-list">
+        <div class="tech-pill"><strong>Three.js</strong> r183 — 3D engine</div>
+        <div class="tech-pill"><strong>WebXR</strong> Device API</div>
+        <div class="tech-pill"><strong>Vite 8</strong> — build system</div>
+        <div class="tech-pill"><strong>Jacobi SVD</strong> — pure JS, no math library</div>
+        <div class="tech-pill"><strong>InstancedMesh</strong> — single draw call per cloud</div>
+        <div class="tech-pill"><strong>Web Audio API</strong> — Cmaj9 ambient pad</div>
+        <div class="tech-pill"><strong>GitHub Pages</strong> — zero backend</div>
+        <div class="tech-pill"><strong>ESO Milky Way</strong> — CC BY 4.0 panorama</div>
+      </div>
+      <p style="font-size:0.85rem; color:#4a5a7a;">
+        The entire application is ~1350 lines of JavaScript in a single file.
+        SVD, PCA, and least-squares are computed in plain JS with a self-contained
+        Jacobi eigendecomposition — no server, no WebAssembly, no backend.
+        Bundle size: ~590 kB (gzip: ~151 kB).
+      </p>
+    </section>
+
+    <!-- Links -->
+    <section>
+      <h2>Links</h2>
+      <div class="link-row">
+        <a href="https://bm-studio-2026.github.io/Visualizer2026-WebXR/vr.html">Launch VR Demo</a>
+        <a href="https://github.com/bm-studio-2026/Visualizer2026-WebXR">GitHub Repository</a>
+        <a href="https://github.com/bm-studio-2026/Visualizer2026-WebXR/blob/main/TECHNICAL_REPORT.md">Technical Report</a>
+        <a href="https://bm-studio-2026.github.io/Visualizer2026/">Main Visualizer2026 (Desktop)</a>
+        <a href="https://github.com/bm-studio-2026/Visualizer2026">Main GitHub Repository</a>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    Visualizer2026 WebXR &nbsp;·&nbsp; BM Studio 2026 &nbsp;·&nbsp;
+    Built with Three.js and WebXR &nbsp;·&nbsp;
+    <a href="https://github.com/bm-studio-2026/Visualizer2026-WebXR" style="color:#2a3a5a;">GitHub</a>
+  </footer>
+
 </body>
 </html>
