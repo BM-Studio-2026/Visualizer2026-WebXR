@@ -1400,6 +1400,14 @@ const ctrl1=renderer.xr.getController(0);
 const ctrl2=renderer.xr.getController(1);
 scene.add(ctrl1);scene.add(ctrl2);
 
+// Map handedness→ctrlGrp so grab/wristHUD stay on correct hand after headset reconnect
+const ctrlByHand={};
+function _bindCtrl(c){
+  c.addEventListener('connected',e=>{if(e.data.handedness==='right'||e.data.handedness==='left')ctrlByHand[e.data.handedness]=c;});
+  c.addEventListener('disconnected',()=>{for(const k of Object.keys(ctrlByHand)){if(ctrlByHand[k]===c)delete ctrlByHand[k];}});
+}
+_bindCtrl(ctrl1);_bindCtrl(ctrl2);
+
 function addRay(c,col=0xffffff){
   const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]);
   const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.5}));
@@ -1421,7 +1429,7 @@ let grabActive=false,prevAPressed=false;
 const _cPos=new THREE.Vector3(),_cQuat=new THREE.Quaternion();
 const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_invQ=new THREE.Quaternion(),_rp=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
-renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;});
+renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;});
 
 function triggerHaptics(intensity=0.65,duration=180){
   if(!currentXRSession)return;
@@ -1585,7 +1593,7 @@ renderer.setAnimationLoop(()=>{
       for(let i=0;i<session.inputSources.length;i++){
         const src=session.inputSources[i];
         if(!src.gamepad)continue;
-        const ctrlGrp=i===0?ctrl1:ctrl2;
+        const ctrlGrp=ctrlByHand[src.handedness]??(i===0?ctrl1:ctrl2);
         const trigger=src.gamepad.buttons[0]?.pressed??false;
         const grip   =src.gamepad.buttons[1]?.pressed??false;
         const thumbBtn=src.gamepad.buttons[3]?.pressed??false;
