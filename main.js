@@ -143,10 +143,12 @@ function pca3(pts){
   const{vals,vecs}=jacobiEig3(C);
   const idx=[0,1,2].sort((a,b)=>vals[b]-vals[a]);
   const sig=idx.map(i=>Math.sqrt(Math.max(0,vals[i]/n)));
+  const evals=idx.map(i=>Math.max(0,vals[i]/n));
+  const Cov=C.map(row=>row.map(v=>v/n));
   const V=[[0,0,0],[0,0,0],[0,0,0]];
   for(let j=0;j<3;j++)for(let i=0;i<3;i++)V[i][j]=vecs[i][idx[j]];
   if(det3(V)<0)for(let i=0;i<3;i++)V[i][2]*=-1;
-  return{mean,V,s:sig,centered};
+  return{mean,V,s:sig,centered,Cov,evals};
 }
 
 function lseSolve(planes){
@@ -472,33 +474,55 @@ function updatePanel(){
     ctx.fillStyle='#ffdd55';ctx.font='bold 25px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
     ctx.fillStyle='#aaaaaa';ctx.font='21px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
     y=divider(ctx,y,W,IND);
-    ctx.fillStyle='#bbccee';ctx.font='20px monospace';
-    const desc={
-      1:['Matrix A (2×3): R³ → R²','A = [[1,2,0],[0,1,-1]]','Stage 1: rotate by V (3×3)','Stage 2: scale + collapse z','Stage 3: U rotation → plane'],
-      2:['Matrix A (3×2): R² → R³','A = [[1,2],[0,1],[-1,0]]','Stage 1: rotate by V (2×2)','Stage 2: scale by σ₁,σ₂','Stage 3: U lift into 3D'],
-      3:['30 3D pancake-cluster pts','Stage 1: align to PC axes','Stage 2: project to PC1-PC2','Stage 3: project to PC1 line','Blue plane = PC1-PC2 span'],
-      4:['4 planes: Ax+By+Cz+D=0','LS minimizes Σ(dist to planes)','White sphere = LS solution','Lines = plane residuals','(static visualization)'],
-    }[scenarioMode]||[];
-    for(const line of desc){ctx.fillText(line,IND,y);y+=28;}
-    y+=6;y=divider(ctx,y,W,IND);
+    // ── Mode 1: 2×3 matrix display ──────────────────────────────────────────
     if(scenarioMode===1&&s1Data){
+      ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Matrix A (2×3):  R³ → R²',IND,y);y+=26;
+      ctx.fillStyle='#bbccee';ctx.font='21px monospace';ctx.fillText('A =',IND,y);
+      for(let r=0;r<2;r++){const row=s1Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
+      y+=2*29+10;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#bbccee';ctx.font='20px monospace';
+      for(const line of['Stage 1: rotate by V (3×3 right sing vecs)','Stage 2: Σ scaling + collapse z → plane','Stage 3: U rotation → image plane']){ctx.fillText(line,IND,y);y+=28;}
+      y+=4;y=divider(ctx,y,W,IND);
       ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
       ctx.fillStyle='#cccccc';ctx.font='20px monospace';
       ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
     }
+    // ── Mode 2: 3×2 matrix display ──────────────────────────────────────────
     if(scenarioMode===2&&s2Data){
+      ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Matrix A (3×2):  R² → R³',IND,y);y+=26;
+      ctx.fillStyle='#bbccee';ctx.font='21px monospace';ctx.fillText('A =',IND,y);
+      for(let r=0;r<3;r++){const row=s2Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
+      y+=3*29+10;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#bbccee';ctx.font='20px monospace';
+      for(const line of['Stage 1: rotate by V (2×2 right sing vecs)','Stage 2: Σ stretching (σ₁, σ₂)','Stage 3: U lifts into 3D']){ctx.fillText(line,IND,y);y+=28;}
+      y+=4;y=divider(ctx,y,W,IND);
       ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
       ctx.fillStyle='#cccccc';ctx.font='20px monospace';
       ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
     }
+    // ── Mode 3: covariance matrix, eigenvalues, variance retained ───────────
     if(scenarioMode===3&&s3Data){
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('PC singular values:',IND,y);y+=30;
-      const sv=s3Data.pca.s,tot=sv[0]**2+sv[1]**2+sv[2]**2||1;
+      const{Cov,evals}=s3Data.pca;
+      ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Covariance matrix (normalized):',IND,y);y+=26;
+      ctx.fillStyle='#bbccee';ctx.font='20px monospace';ctx.fillText('Cov =',IND,y);
+      for(let r=0;r<3;r++){const row=Cov[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+72,y+r*28);}
+      y+=3*28+10;y=divider(ctx,y,W,IND);
+      const tot=evals[0]+evals[1]+evals[2]||1;
+      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Eigenvalues:',IND,y);y+=30;
       ctx.fillStyle='#cccccc';ctx.font='20px monospace';
-      ctx.fillText(`σ₁=${sv[0].toFixed(3)}, σ₂=${sv[1].toFixed(3)}, σ₃=${sv[2].toFixed(3)}`,IND,y);y+=28;
-      ctx.fillText(`Var: ${(sv[0]**2/tot*100).toFixed(0)}% + ${(sv[1]**2/tot*100).toFixed(0)}% + ${(sv[2]**2/tot*100).toFixed(0)}%`,IND,y);y+=32;
+      ctx.fillText(`λ₁=${evals[0].toFixed(3)},  λ₂=${evals[1].toFixed(3)},  λ₃=${evals[2].toFixed(3)}`,IND,y);y+=28;
+      ctx.fillStyle='#ffffaa';
+      ctx.fillText(`Var 2D = ${((evals[0]+evals[1])/tot*100).toFixed(1)}%  (PC1+PC2)`,IND,y);y+=28;
+      ctx.fillText(`Var 1D = ${(evals[0]/tot*100).toFixed(1)}%  (PC1 only)`,IND,y);y+=32;
+      y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#bbccee';ctx.font='20px monospace';
+      for(const line of['Stage 1: align to PC axes','Stage 2: project to PC1-PC2 plane','Stage 3: project to PC1 line']){ctx.fillText(line,IND,y);y+=28;}
     }
+    // ── Mode 4: LSE ─────────────────────────────────────────────────────────
     if(scenarioMode===4&&s4Data){
+      ctx.fillStyle='#bbccee';ctx.font='20px monospace';
+      for(const line of['4 planes: Ax+By+Cz+D=0','LS minimizes Σ(dist to planes)','White sphere = LS solution','Lines = plane residuals','(static visualization)']){ctx.fillText(line,IND,y);y+=28;}
+      y+=4;y=divider(ctx,y,W,IND);
       const x=s4Data.lse.xLS;
       ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('LS Solution:',IND,y);y+=30;
       ctx.fillStyle='#ffdd55';ctx.font='20px monospace';
@@ -916,7 +940,7 @@ function buildScenario1(speak){
   const cubeW=makeSegs(cubePosArray(cubeC),matCO);
   const cubeR=makeSegs(cubePosArray(cubeC),matCT);
   root.add(cubeW);root.add(cubeR);
-  s1Data={svd,pts,tIM,cubeC,cubeR};
+  s1Data={svd,pts,tIM,cubeC,cubeR,A};
   initTrails();updateScenario1();updatePanel();updateHUD();updateWristHUD();
 }
 
@@ -958,7 +982,7 @@ function buildScenario2(speak){
   const squareW=makeSegs(squarePosFlat(squareC),matCO);
   const squareR=makeSegs(squarePosFlat(squareC),matCT);
   root.add(squareW);root.add(squareR);
-  s2Data={svd,pts2d,tIM,squareC,squareR};
+  s2Data={svd,pts2d,tIM,squareC,squareR,A};
   initTrails();updateScenario2();updatePanel();updateHUD();updateWristHUD();
 }
 
