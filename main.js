@@ -450,7 +450,12 @@ function stageName(t){
     if(t<0.01)return'Original 3D cloud';if(t<=1)return'Stage 1 — Align to PC axes';
     if(t<=2)return'Stage 2 — Project to PC1-PC2';return'Stage 3 — Project to PC1 line';
   }
-  if(scenarioMode===4)return'Least Squares Solution (static)';
+  if(scenarioMode===4){
+    if(tParam<0.01)return'Stage 0 — 3 planes';
+    if(tParam<=1)return'Stage 0 — 3 planes';
+    if(tParam<=2)return'Stage 1 — 4th plane added';
+    return'Stage 2 — 5th plane added';
+  }
   if(t<0.01) return'Identity (I)';
   if(t<=1.0) return'Stage 1 — V rotation';
   if(t<=2.0) return'Stage 2 — Σ scaling';
@@ -554,27 +559,33 @@ function updatePanel(){
         ['#4488ff','PC3 — smallest variance axis'],
       ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
     }
-    // ── Mode 4: LSE + legend ─────────────────────────────────────────────────
+    // ── Mode 4: LSE staged + legend ──────────────────────────────────────────
     if(scenarioMode===4&&s4Data){
+      const stg=Math.min(2,Math.floor(tParam));
+      const lseCur=stg===0?s4Data.lse3:stg===1?s4Data.lse4:s4Data.lse5;
+      const nPlanes=stg+3;
       ctx.fillStyle='#bbccee';ctx.font='22px monospace';
-      for(const line of['4 planes: Ax+By+Cz+D=0','LS minimizes Σ(dist to planes)','White sphere = LS solution','Lines = plane residuals','(static visualization)']){ctx.fillText(line,IND,y);y+=28;}
+      ctx.fillText(`Stage ${stg}: ${nPlanes} planes active`,IND,y);y+=28;
+      ctx.fillText('LS minimizes \u03a3(dist\u00b2 to planes)',IND,y);y+=28;
+      ctx.fillText('Sphere animates as planes are added',IND,y);y+=28;
       y+=4;y=divider(ctx,y,W,IND);
-      const x=s4Data.lse.xLS;
+      const x=lseCur.xLS;
       ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('LS Solution:',IND,y);y+=30;
       ctx.fillStyle='#ffdd55';ctx.font='22px monospace';
       ctx.fillText(`x=${x[0].toFixed(3)}, y=${x[1].toFixed(3)}, z=${x[2].toFixed(3)}`,IND,y);y+=28;
       ctx.fillStyle='#cccccc';
-      ctx.fillText(`Residuals: ${s4Data.lse.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=32;
+      ctx.fillText(`Residuals: ${lseCur.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=32;
       y=divider(ctx,y,W,IND);
       ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Legend',IND,y);y+=28;
       ctx.font='20px monospace';
       for(const[col,lbl] of[
-        ['#ffffcc','LS solution (glowing sphere)'],
+        ['#ffffcc','LS solution (animated sphere)'],
         ['#aaaaaa','Residual lines to planes'],
         ['#ff4444','Plane 1:  x + y + z = 3'],
-        ['#44ff44','Plane 2:  x − y = 0'],
-        ['#4488ff','Plane 3:  y − z = −1'],
-        ['#ffaa22','Plane 4:  x − 2z = −2'],
+        ['#44ff44','Plane 2:  x \u2212 y = 0'],
+        ['#4488ff','Plane 3:  y \u2212 z = \u22121'],
+        ['#ffaa22','Plane 4:  x \u2212 2z = \u22122  (stage 1+)'],
+        ['#ff44ff','Plane 5:  2x + y = 4  (stage 2)'],
         ['#dddddd','Scene bounds (white cube)'],
       ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
     }
@@ -714,10 +725,12 @@ function updateWristHUD(){
     ctx.fillStyle='#88aadd';ctx.fillText('60-point pancake cloud  \u2192  PCA',P,y+16);y+=22;
   }
   if(scenarioMode===4&&s4Data){
-    const xls=s4Data.lse.xLS;
-    ctx.fillStyle='#cccccc';ctx.fillText('Overdetermined system: 4 planes',P,y+16);y+=21;
+    const stg=Math.min(2,Math.floor(tParam));
+    const lseCur=stg===0?s4Data.lse3:stg===1?s4Data.lse4:s4Data.lse5;
+    const xls=lseCur.xLS;
+    ctx.fillStyle='#cccccc';ctx.fillText(`Stage ${stg}: ${stg+3} planes active`,P,y+16);y+=21;
     ctx.fillStyle='#ffdd55';ctx.fillText(`x=${xls[0].toFixed(2)}  y=${xls[1].toFixed(2)}  z=${xls[2].toFixed(2)}`,P,y+16);y+=21;
-    ctx.fillStyle='#88aadd';ctx.fillText(`Residuals: ${s4Data.lse.dists.map(d=>d.toFixed(2)).join('  ')}`,P,y+16);y+=22;
+    ctx.fillStyle='#88aadd';ctx.fillText(`Res: ${lseCur.dists.map(d=>d.toFixed(2)).join('  ')}`,P,y+16);y+=22;
   }
   wDiv();
   // ── Steps ────────────────────────────────────────────────────────────────────
@@ -735,9 +748,9 @@ function updateWristHUD(){
     3:[['t:0\u21921','Rotate cloud to align with PC axes'],
        ['t:1\u21922','Project out PC3  \u2192  flatten to 2D plane'],
        ['t:2\u21923','Project out PC2  \u2192  collapse to 1D line']],
-    4:[['  \u2014  ','Static view  (no t animation)'],
-       ['  \u2014  ','4 planes: x+y+z=3, x-y=0, y-z=-1, x-2z=-2'],
-       ['  \u2014  ','Least-squares minimises \u03a3(dist to planes)']],
+    4:[['t:0\u21921','3 planes shown, LS sphere at initial solution'],
+       ['t:1\u21922','4th plane fades in, sphere animates to new LS'],
+       ['t:2\u21923','5th plane fades in, sphere animates again']],
   }[scenarioMode]||[];
   ctx.font='15px monospace';
   for(let i=0;i<steps.length;i++){
@@ -1163,54 +1176,137 @@ function updateScenario3(){
   updateIM(tIM,tPts);return tPts;
 }
 
-// ─── Scenario 4: Least Squares ────────────────────────────────────────────────
+// ─── Scenario 4: Least Squares (staged) ──────────────────────────────────────
+
+const S4_PLANES=[[1,1,1,-3],[1,-1,0,0],[0,1,-1,1],[1,0,-2,2],[2,1,0,-4]];
+const S4_PCOLORS=[0xff4444,0x44ff44,0x4488ff,0xffaa22,0xff44ff];
 
 function buildScenario4(speak){
   sceneCommon(speak,SCENARIO_NAMES[4]);
-  const planes=[[1,1,1,-3],[1,-1,0,0],[0,1,-1,1],[1,0,-2,2]];
-  const lse=lseSolve(planes);
-  const xLS=lse.xLS;
-  const pColors=[0xff4444,0x44ff44,0x4488ff,0xffaa22];
-  // Semi-transparent plane quads centred at nearest point on each plane to origin
-  for(let i=0;i<planes.length;i++){
+  const planes=S4_PLANES;
+  const lse3=lseSolve(planes.slice(0,3));
+  const lse4=lseSolve(planes.slice(0,4));
+  const lse5=lseSolve(planes.slice(0,5));
+
+  // Build all 5 plane quads + wireframe borders; planes 4-5 (index 3-4) start hidden
+  const planeMeshes=[];
+  const h=1.75;
+  for(let i=0;i<5;i++){
     const[a,bv,c,d]=planes[i],nm=Math.sqrt(a*a+bv*bv+c*c);
-    const pm=makeSemiPlane([a/nm,bv/nm,c/nm],pColors[i],0.20,3.5);
+    const pm=makeSemiPlane([a/nm,bv/nm,c/nm],S4_PCOLORS[i],0.20,3.5);
     pm.position.set(-d*a/(nm*nm),-d*bv/(nm*nm),-d*c/(nm*nm));
+    pm.material.transparent=true;
     root.add(pm);
-    // Square wireframe border matching the plane boundary
-    const h=1.75; // half of PlaneGeometry size 3.5
     const eq=new THREE.BufferGeometry().setFromPoints(
       [[-h,-h,0],[h,-h,0],[h,h,0],[-h,h,0],[-h,-h,0]].map(v=>new THREE.Vector3(...v)));
-    const el=new THREE.Line(eq,new THREE.LineBasicMaterial({color:pColors[i],transparent:true,opacity:0.75}));
+    const el=new THREE.Line(eq,new THREE.LineBasicMaterial({color:S4_PCOLORS[i],transparent:true,opacity:0.75}));
     el.position.copy(pm.position);el.quaternion.copy(pm.quaternion);root.add(el);
+    if(i>=3){pm.visible=false;el.visible=false;}
+    planeMeshes.push({pm,el});
   }
-  // Residual lines from LS point to each plane
-  const resVerts=[];
-  for(let i=0;i<lse.normals.length;i++){
-    const n=lse.normals[i],bi=lse.b[i];
-    const dist=n[0]*xLS[0]+n[1]*xLS[1]+n[2]*xLS[2]-bi;
-    const proj=xLS.map((v,j)=>v-dist*n[j]);
-    resVerts.push(...xLS,...proj);
-  }
+
+  // Residual line geometry — capacity for 5 segments (10 verts)
+  const resArr=new Float32Array(5*2*3);
+  const resAttr=new THREE.Float32BufferAttribute(resArr,3);
+  resAttr.usage=THREE.DynamicDrawUsage;
   const resGeo=new THREE.BufferGeometry();
-  resGeo.setAttribute('position',new THREE.Float32BufferAttribute(resVerts,3));
+  resGeo.setAttribute('position',resAttr);
+  resGeo.setDrawRange(0,6); // start with 3 planes = 6 verts
   root.add(new THREE.LineSegments(resGeo,
-    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.75})));
-  // LS solution marker (bright glowing sphere)
-  const lsMat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:0.9});
-  const lsMesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,16,12),lsMat);
-  lsMesh.position.set(...xLS);root.add(lsMesh);
-  // White bounding cube around the scene region
-  const cubeRegion=buildCubeCorners([[xLS[0]-2,xLS[1]-2,xLS[2]-2],[xLS[0]+2,xLS[1]+2,xLS[2]+2]]);
-  root.add(makeSegs(cubePosArray(cubeRegion),matCO));
-  const lbl=makeLabel('Least Squares','#88aaff','big');lbl.position.set(0,2.5,0);root.add(lbl);
-  const lbl2=makeLabel(`x=[${xLS.map(v=>v.toFixed(2)).join(', ')}]`,'#ffdd55');
-  lbl2.position.set(xLS[0]+0.35,xLS[1]+0.35,xLS[2]+0.35);root.add(lbl2);
-  s4Data={lse,planes};
-  initTrails();updatePanel();updateHUD();updateWristHUD();
+    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.80})));
+
+  // LS sphere — high emissive for bloom
+  const lsMat=new THREE.MeshStandardMaterial({
+    color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5,
+  });
+  const lsSphere=new THREE.Mesh(new THREE.SphereGeometry(0.12,16,12),lsMat);
+  lsSphere.position.set(...lse3.xLS);
+  root.add(lsSphere);
+
+  // Bounding cube sized around the full 5-plane solution region
+  const allXLS=[lse3.xLS,lse4.xLS,lse5.xLS];
+  const pad=2.2;
+  const mn=[Math.min(...allXLS.map(p=>p[0]))-pad, Math.min(...allXLS.map(p=>p[1]))-pad, Math.min(...allXLS.map(p=>p[2]))-pad];
+  const mx=[Math.max(...allXLS.map(p=>p[0]))+pad, Math.max(...allXLS.map(p=>p[1]))+pad, Math.max(...allXLS.map(p=>p[2]))+pad];
+  root.add(makeSegs(cubePosArray(buildCubeCorners([mn,mx])),matCO));
+
+  const lbl=makeLabel('Least Squares','#88aaff','big');lbl.position.set(0,2.65,0);root.add(lbl);
+
+  s4Data={lse3,lse4,lse5,planes,planeMeshes,lsSphere,lsMat,resAttr,resArr,resGeo};
+  initTrails();updateScenario4();updatePanel();updateHUD();updateWristHUD();
 }
 
-function updateScenario4(){return[];}
+function updateScenario4(){
+  if(!s4Data)return[];
+  const{lse3,lse4,lse5,planes,planeMeshes,lsSphere,lsMat,resAttr,resArr,resGeo}=s4Data;
+  const t=tParam;
+
+  // Smooth-step helper
+  const ss=x=>x*x*(3-2*x);
+
+  // Determine interpolated LS position and active plane count
+  let lsPos,activeCnt,fadeAlpha;
+  if(t<=1){
+    lsPos=lse3.xLS.slice();
+    activeCnt=3; fadeAlpha=1;
+  } else if(t<=2){
+    const a=ss(t-1);
+    lsPos=lse3.xLS.map((v,i)=>v+(lse4.xLS[i]-v)*a);
+    activeCnt=4; fadeAlpha=t-1;
+  } else {
+    const a=ss(t-2);
+    lsPos=lse4.xLS.map((v,i)=>v+(lse5.xLS[i]-v)*a);
+    activeCnt=5; fadeAlpha=t-2;
+  }
+
+  // Update sphere position
+  lsSphere.position.set(...lsPos);
+
+  // Bloom pulse: emissiveIntensity spikes during movement, scale breathes
+  let emissive=1.5,sc=1;
+  if(t>1&&t<=2){
+    const p=t-1;
+    emissive=1.5+4.0*Math.sin(Math.PI*p);
+    sc=1+0.30*Math.sin(Math.PI*p);
+  } else if(t>2&&t<=3){
+    const p=t-2;
+    emissive=1.5+4.0*Math.sin(Math.PI*p);
+    sc=1+0.30*Math.sin(Math.PI*p);
+  }
+  lsMat.emissiveIntensity=emissive;
+  lsSphere.scale.setScalar(sc);
+
+  // Plane visibility — first 3 always on; 4th and 5th fade in
+  for(let i=0;i<3;i++){planeMeshes[i].pm.visible=true;planeMeshes[i].el.visible=true;}
+  if(activeCnt>=4){
+    const op=Math.min(1,fadeAlpha);
+    planeMeshes[3].pm.visible=true;planeMeshes[3].el.visible=true;
+    planeMeshes[3].pm.material.opacity=0.20*op;
+    planeMeshes[3].el.material.opacity=0.75*op;
+  } else {planeMeshes[3].pm.visible=false;planeMeshes[3].el.visible=false;}
+  if(activeCnt>=5){
+    const op=Math.min(1,fadeAlpha);
+    planeMeshes[4].pm.visible=true;planeMeshes[4].el.visible=true;
+    planeMeshes[4].pm.material.opacity=0.20*op;
+    planeMeshes[4].el.material.opacity=0.75*op;
+  } else {planeMeshes[4].pm.visible=false;planeMeshes[4].el.visible=false;}
+
+  // Update residual lines from current sphere position to each active plane
+  let vi=0;
+  for(let i=0;i<activeCnt;i++){
+    const[a,bv,c,d]=planes[i],nm=Math.sqrt(a*a+bv*bv+c*c);
+    const n=[a/nm,bv/nm,c/nm],bi=-d/nm;
+    const dist=n[0]*lsPos[0]+n[1]*lsPos[1]+n[2]*lsPos[2]-bi;
+    const proj=[lsPos[0]-dist*n[0],lsPos[1]-dist*n[1],lsPos[2]-dist*n[2]];
+    resArr[vi++]=lsPos[0];resArr[vi++]=lsPos[1];resArr[vi++]=lsPos[2];
+    resArr[vi++]=proj[0]; resArr[vi++]=proj[1]; resArr[vi++]=proj[2];
+  }
+  resAttr.array.set(resArr);
+  resAttr.needsUpdate=true;
+  resGeo.setDrawRange(0,activeCnt*2);
+
+  return[];
+}
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
