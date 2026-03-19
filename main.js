@@ -759,15 +759,26 @@ function makeAxisLine(ax,len,mat){
   const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-a[0]*len,-a[1]*len,-a[2]*len),new THREE.Vector3(a[0]*len,a[1]*len,a[2]*len)]);
   const l=new THREE.Line(g,mat);l.computeLineDistances();return l;
 }
-function makeLabel(text,colorStr){
-  const c=document.createElement('canvas');c.width=256;c.height=64;
+function makeLabel(text,colorStr,size='normal'){
+  const cfg={
+    normal:{w:256,h:64, font:'bold 24px monospace',tx:128,ty:44,sx:0.44,sy:0.11},
+    big:   {w:512,h:88, font:'bold 36px monospace',tx:256,ty:62,sx:0.90,sy:0.16},
+    axis:  {w:64, h:64, font:'bold 44px monospace',tx:32, ty:48,sx:0.18,sy:0.18},
+  }[size]||{w:256,h:64,font:'bold 24px monospace',tx:128,ty:44,sx:0.44,sy:0.11};
+  const c=document.createElement('canvas');c.width=cfg.w;c.height=cfg.h;
   const ctx=c.getContext('2d');
-  ctx.font='bold 24px monospace';
-  ctx.shadowColor=colorStr;ctx.shadowBlur=10;
-  ctx.fillStyle=colorStr;ctx.textAlign='center';ctx.fillText(text,128,44);
+  ctx.font=cfg.font;
+  ctx.shadowColor=colorStr;ctx.shadowBlur=12;
+  ctx.fillStyle=colorStr;ctx.textAlign='center';ctx.fillText(text,cfg.tx,cfg.ty);
   const tex=new THREE.CanvasTexture(c);
   const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false});
-  const sprite=new THREE.Sprite(mat);sprite.scale.set(0.44,0.11,1);return sprite;
+  const sprite=new THREE.Sprite(mat);sprite.scale.set(cfg.sx,cfg.sy,1);return sprite;
+}
+
+function addAxisLabels(){
+  for(const[t,x,y,z,col] of[['X',2.05,0,0,'#ff4444'],['Y',0,2.05,0,'#44ff44'],['Z',0,0,2.05,'#4488ff']]){
+    const lbl=makeLabel(t,col,'axis');lbl.position.set(x,y,z);root.add(lbl);
+  }
 }
 
 // ─── Trail system ─────────────────────────────────────────────────────────────
@@ -838,6 +849,9 @@ function rebuildScene(speak=false){
   root.clear();svLabels=[];
   if(speak)speakText(`Matrix: ${PRESETS[presetIdx].name}`);
   root.add(new THREE.AxesHelper(1.8));
+  addAxisLabels();
+  const titleLbl=makeLabel(`3×3 SVD Transform — ${PRESETS[presetIdx].name}`,'#88aaff','big');
+  titleLbl.position.set(0,2.5,0);root.add(titleLbl);
 
   const A=PRESETS[presetIdx].A;
   currentSVD=makeRotationalSVD(A);
@@ -958,6 +972,7 @@ function updateIM(im,pts){
 function sceneCommon(speak,name){
   root.clear();svLabels=[];
   root.add(new THREE.AxesHelper(1.8));
+  addAxisLabels();
   if(speak)speakText(name);
   if(pulseRing){root.remove(pulseRing);pulseRing=null;}
   pulseAge=-1;lastTFloor=0;lastSpokenStage=-1;
@@ -983,7 +998,7 @@ function buildScenario1(speak){
     const lbl=makeLabel(`v${i+1}  σ=${svd.s[i].toFixed(2)}`,SV_COLORS[i]);
     lbl.position.set(d[0]*len*1.4,d[1]*len*1.4,d[2]*len*1.4);root.add(lbl);
   }
-  const lbl=makeLabel('2×3 Projection  R³→R²','#88aaff');lbl.position.set(0,2.3,0);root.add(lbl);
+  const lbl=makeLabel('2×3 Projection  R³→R²','#88aaff','big');lbl.position.set(0,2.5,0);root.add(lbl);
   // White cube (original 3D) + red cube (collapses to 2D plane)
   const cubeC=buildCubeCorners(pts);
   const cubeW=makeSegs(cubePosArray(cubeC),matCO);
@@ -1022,7 +1037,7 @@ function buildScenario2(speak){
     const lbl=makeLabel(`u${i+1}  σ=${svd.s[i].toFixed(2)}`,SV_COLORS[i]);
     lbl.position.set(d[0]*len*1.4,d[1]*len*1.4,d[2]*len*1.4);root.add(lbl);
   }
-  const lbl=makeLabel('3×2 Lifting  R²→R³','#88aaff');lbl.position.set(0,2.3,0);root.add(lbl);
+  const lbl=makeLabel('3×2 Lifting  R²→R³','#88aaff','big');lbl.position.set(0,2.5,0);root.add(lbl);
   // White cube: static reference for the 3D output space
   const ptsFull=pathScen2(pts2d,3.0,svd);
   root.add(makeSegs(cubePosArray(buildCubeCorners(ptsFull)),matCO));
@@ -1068,7 +1083,7 @@ function buildScenario3(speak){
   root.add(oIM);root.add(tIM);
   // White bounding cube (static reference)
   root.add(makeSegs(cubePosArray(buildCubeCorners(pts)),matCO));
-  const lbl=makeLabel('3D PCA','#88aaff');lbl.position.set(0,2.5,0);root.add(lbl);
+  const lbl=makeLabel('3D PCA','#88aaff','big');lbl.position.set(0,2.5,0);root.add(lbl);
   s3Data={pca,pts,tIM};
   initTrails();updateScenario3();updatePanel();updateHUD();updateWristHUD();
 }
@@ -1121,7 +1136,7 @@ function buildScenario4(speak){
   // White bounding cube around the scene region
   const cubeRegion=buildCubeCorners([[xLS[0]-2,xLS[1]-2,xLS[2]-2],[xLS[0]+2,xLS[1]+2,xLS[2]+2]]);
   root.add(makeSegs(cubePosArray(cubeRegion),matCO));
-  const lbl=makeLabel('Least Squares','#88aaff');lbl.position.set(0,2.5,0);root.add(lbl);
+  const lbl=makeLabel('Least Squares','#88aaff','big');lbl.position.set(0,2.5,0);root.add(lbl);
   const lbl2=makeLabel(`x=[${xLS.map(v=>v.toFixed(2)).join(', ')}]`,'#ffdd55');
   lbl2.position.set(xLS[0]+0.35,xLS[1]+0.35,xLS[2]+0.35);root.add(lbl2);
   s4Data={lse,planes};
