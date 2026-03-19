@@ -761,9 +761,9 @@ function makeAxisLine(ax,len,mat){
 }
 function makeLabel(text,colorStr,size='normal'){
   const cfg={
-    normal:{w:256,h:64, font:'bold 24px monospace',tx:128,ty:44,sx:0.44,sy:0.11},
-    big:   {w:512,h:88, font:'bold 36px monospace',tx:256,ty:62,sx:0.90,sy:0.16},
-    axis:  {w:64, h:64, font:'bold 44px monospace',tx:32, ty:48,sx:0.18,sy:0.18},
+    normal:{w:256,h:64,  font:'bold 24px monospace',tx:128,ty:44,sx:0.44,sy:0.11},
+    big:   {w:768,h:110, font:'bold 52px monospace',tx:384,ty:78,sx:1.30,sy:0.19},
+    axis:  {w:80, h:80,  font:'bold 56px monospace',tx:40, ty:60,sx:0.22,sy:0.22},
   }[size]||{w:256,h:64,font:'bold 24px monospace',tx:128,ty:44,sx:0.44,sy:0.11};
   const c=document.createElement('canvas');c.width=cfg.w;c.height=cfg.h;
   const ctx=c.getContext('2d');
@@ -850,8 +850,10 @@ function rebuildScene(speak=false){
   if(speak)speakText(`Matrix: ${PRESETS[presetIdx].name}`);
   root.add(new THREE.AxesHelper(1.8));
   addAxisLabels();
-  const titleLbl=makeLabel(`3×3 SVD Transform — ${PRESETS[presetIdx].name}`,'#88aaff','big');
-  titleLbl.position.set(0,2.5,0);root.add(titleLbl);
+  const titleLbl=makeLabel('3×3 SVD Transform','#88aaff','big');
+  titleLbl.position.set(0,2.65,0);root.add(titleLbl);
+  const presetLbl=makeLabel(`Preset: ${PRESETS[presetIdx].name}`,'#aabbdd');
+  presetLbl.position.set(0,2.38,0);root.add(presetLbl);
 
   const A=PRESETS[presetIdx].A;
   currentSVD=makeRotationalSVD(A);
