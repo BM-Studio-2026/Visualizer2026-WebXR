@@ -1605,6 +1605,7 @@ function triggerHaptics(intensity=0.65,duration=180){
 }
 
 const teleportRay=new THREE.Raycaster();
+const grabRay=new THREE.Raycaster();
 const tmpMatrix=new THREE.Matrix4();
 
 function doTeleport(pos){
@@ -1705,15 +1706,16 @@ renderer.setAnimationLoop(()=>{
         if(src.handedness==='right'){
           if(vrGrabMode&&scenarioMode===4&&s4Data){
             // ── Plane grab mode ────────────────────────────────────────────────
-            // Hover: find nearest visible plane within reach threshold (root-local)
-            ctrlByHand['right'].getWorldPosition(_cPos);
-            const ctrlRL=root.worldToLocal(_cPos.clone());
-            hoverPlaneIdx=-1;let minD=0.9;
-            for(let pi=0;pi<5;pi++){
-              if(!s4Data.planeMeshes[pi].pm.visible)continue;
-              const d=ctrlRL.distanceTo(s4Data.planeMeshes[pi].pm.position);
-              if(d<minD){minD=d;hoverPlaneIdx=pi;}
-            }
+            ctrlGrp.getWorldPosition(_cPos);
+            _cQuat.setFromRotationMatrix(ctrlGrp.matrixWorld);
+            // Hover: ray cast from controller forward direction → pick plane
+            grabRay.ray.origin.copy(_cPos);
+            tmpMatrix.identity().extractRotation(ctrlGrp.matrixWorld);
+            grabRay.ray.direction.set(0,0,-1).applyMatrix4(tmpMatrix);
+            const visMeshes=s4Data.planeMeshes.filter(p=>p.pm.visible).map(p=>p.pm);
+            const rayHits=grabRay.intersectObjects(visMeshes);
+            hoverPlaneIdx=rayHits.length>0
+              ?s4Data.planeMeshes.findIndex(p=>p.pm===rayHits[0].object):-1;
             // Visual highlight
             for(let pi=0;pi<5;pi++){
               if(!s4Data.planeMeshes[pi].pm.visible)continue;
@@ -1725,27 +1727,24 @@ renderer.setAnimationLoop(()=>{
             if(grip&&!prevPlaneGrip&&hoverPlaneIdx>=0&&grabbedPlaneIdx<0){
               grabbedPlaneIdx=hoverPlaneIdx;
               planeGrabPrevPos.copy(_cPos);
-              planeGrabPrevQuat.setFromRotationMatrix(ctrlByHand['right'].matrixWorld);
+              planeGrabPrevQuat.copy(_cQuat);
               triggerHaptics(0.6,120);
             } else if(!grip&&grabbedPlaneIdx>=0){
               grabbedPlaneIdx=-1;
             }
             // Drag grabbed plane (translate + rotate)
             if(grip&&grabbedPlaneIdx>=0){
-              _cQuat.setFromRotationMatrix(ctrlByHand['right'].matrixWorld);
               const prevRL=root.worldToLocal(planeGrabPrevPos.clone());
               const currRL=root.worldToLocal(_cPos.clone());
               _dPos.copy(currRL).sub(prevRL);
               const pm=s4Data.planeMeshes[grabbedPlaneIdx].pm;
               const el=s4Data.planeMeshes[grabbedPlaneIdx].el;
               pm.position.add(_dPos);
-              // Delta rotation: world→root-local
+              // Delta rotation: world → root-local (dQL = rootQ^-1 * dQWorld * rootQ)
               _invQ.copy(planeGrabPrevQuat).invert();
-              _dQuat.copy(_cQuat).multiply(_invQ); // world dQ = curr*prev^-1
-              // dQLocal = rootQ^-1 * dQWorld * rootQ
+              _dQuat.copy(_cQuat).multiply(_invQ);
               const dQL=root.quaternion.clone().invert();
               dQL.multiply(_dQuat).multiply(root.quaternion);
-              // Rotate plane around grab point
               _rp.copy(pm.position).sub(currRL);
               _rp.applyQuaternion(dQL);
               pm.position.copy(currRL).add(_rp);
