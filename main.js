@@ -70,6 +70,162 @@ function svdPath(t,{U,Sigma,V}){
   return mul(mul(rotAxisAngle(aV,tV),Sigma),rotAxisAngle(aU,-(t-2)*tU));
 }
 
+// ─── SVD helpers for non-square matrices ─────────────────────────────────────
+
+function svd2x3(A){
+  // A: 2×3 → {U:2×2, s:[s1,s2], V:3×3 columns=right sing vecs}
+  const AtA=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)AtA[i][j]=A[0][i]*A[0][j]+A[1][i]*A[1][j];
+  const{vals,vecs}=jacobiEig3(AtA);
+  const idx=[0,1,2].sort((a,b)=>vals[b]-vals[a]);
+  const sig=idx.map(i=>Math.sqrt(Math.max(0,vals[i])));
+  const V=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let j=0;j<3;j++)for(let i=0;i<3;i++)V[i][j]=vecs[i][idx[j]];
+  if(det3(V)<0)for(let i=0;i<3;i++)V[i][2]*=-1;
+  const U=[[0,0],[0,0]];
+  for(let j=0;j<2;j++){
+    if(sig[j]>1e-10){
+      const u=[A[0][0]*V[0][j]+A[0][1]*V[1][j]+A[0][2]*V[2][j],
+               A[1][0]*V[0][j]+A[1][1]*V[1][j]+A[1][2]*V[2][j]];
+      U[0][j]=u[0]/sig[j];U[1][j]=u[1]/sig[j];
+    }else{U[0][j]=(j===0?1:0);U[1][j]=(j===0?0:1);}
+  }
+  return{U,s:sig.slice(0,2),V};
+}
+
+function svd3x2(A){
+  // A: 3×2 → {U:3×3, s:[s1,s2], V:2×2}
+  const AAt=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)AAt[i][j]=A[i][0]*A[j][0]+A[i][1]*A[j][1];
+  const{vals,vecs}=jacobiEig3(AAt);
+  const idx=[0,1,2].sort((a,b)=>vals[b]-vals[a]);
+  const sig=idx.map(i=>Math.sqrt(Math.max(0,vals[i])));
+  const U=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let j=0;j<3;j++)for(let i=0;i<3;i++)U[i][j]=vecs[i][idx[j]];
+  if(det3(U)<0)for(let i=0;i<3;i++)U[i][2]*=-1;
+  const V=[[0,0],[0,0]];
+  for(let j=0;j<2;j++){
+    if(sig[j]>1e-10){
+      const v=[A[0][0]*U[0][j]+A[1][0]*U[1][j]+A[2][0]*U[2][j],
+               A[0][1]*U[0][j]+A[1][1]*U[1][j]+A[2][1]*U[2][j]];
+      V[0][j]=v[0]/sig[j];V[1][j]=v[1]/sig[j];
+    }else{V[0][j]=(j===0?1:0);V[1][j]=(j===0?0:1);}
+  }
+  return{U,s:sig.slice(0,2),V};
+}
+
+function genPoints2D(n,seed){
+  let s=seed>>>0;
+  const rng=()=>{s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff;};
+  const rn=()=>Math.sqrt(-2*Math.log(rng()||1e-10))*Math.cos(2*Math.PI*rng());
+  const L=Math.sqrt(1.2-0.16);
+  return Array.from({length:n},()=>{const a=rn(),b=rn();return[a,0.4*a+L*b];});
+}
+
+function genPancake3D(n,seed){
+  let s=seed>>>0;
+  const rng=()=>{s=(s*1664525+1013904223)&0xffffffff;return(s>>>0)/0xffffffff;};
+  const rn=()=>Math.sqrt(-2*Math.log(rng()||1e-10))*Math.cos(2*Math.PI*rng());
+  const ax=25*Math.PI/180,ay=35*Math.PI/180;
+  const Rx=[[1,0,0],[0,Math.cos(ax),-Math.sin(ax)],[0,Math.sin(ax),Math.cos(ax)]];
+  const Ry=[[Math.cos(ay),0,Math.sin(ay)],[0,1,0],[-Math.sin(ay),0,Math.cos(ay)]];
+  const R=mul(Ry,Rx);
+  return Array.from({length:n},()=>mulVec(R,[rn()*2.5,rn()*1.4,rn()*0.3]));
+}
+
+function pca3(pts){
+  const n=pts.length,mean=[0,0,0];
+  for(const p of pts){mean[0]+=p[0];mean[1]+=p[1];mean[2]+=p[2];}
+  mean[0]/=n;mean[1]/=n;mean[2]/=n;
+  const centered=pts.map(p=>[p[0]-mean[0],p[1]-mean[1],p[2]-mean[2]]);
+  const C=[[0,0,0],[0,0,0],[0,0,0]];
+  for(const p of centered)for(let i=0;i<3;i++)for(let j=0;j<3;j++)C[i][j]+=p[i]*p[j];
+  const{vals,vecs}=jacobiEig3(C);
+  const idx=[0,1,2].sort((a,b)=>vals[b]-vals[a]);
+  const sig=idx.map(i=>Math.sqrt(Math.max(0,vals[i]/n)));
+  const V=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let j=0;j<3;j++)for(let i=0;i<3;i++)V[i][j]=vecs[i][idx[j]];
+  if(det3(V)<0)for(let i=0;i<3;i++)V[i][2]*=-1;
+  return{mean,V,s:sig,centered};
+}
+
+function lseSolve(planes){
+  const An=[],b=[];
+  for(const[a,bv,c,d] of planes){
+    const nm=Math.sqrt(a*a+bv*bv+c*c);if(nm<1e-10)continue;
+    An.push([a/nm,bv/nm,c/nm]);b.push(-d/nm);
+  }
+  const AtA=[[0,0,0],[0,0,0],[0,0,0]],Atb=[0,0,0];
+  for(let i=0;i<An.length;i++){
+    for(let r=0;r<3;r++)for(let c2=0;c2<3;c2++)AtA[r][c2]+=An[i][r]*An[i][c2];
+    for(let r=0;r<3;r++)Atb[r]+=An[i][r]*b[i];
+  }
+  const d=det3(AtA);
+  let xLS=[0,0,0];
+  if(Math.abs(d)>1e-12){
+    const col=(M,ci,v)=>M.map((row,ri)=>row.map((x,j)=>j===ci?v[ri]:x));
+    xLS=[det3(col(AtA,0,Atb)),det3(col(AtA,1,Atb)),det3(col(AtA,2,Atb))].map(v=>v/d);
+  }
+  const dists=An.map((n,i)=>Math.abs(n[0]*xLS[0]+n[1]*xLS[1]+n[2]*xLS[2]-b[i]));
+  return{xLS,normals:An,b,dists};
+}
+
+// ─── Animation paths for new scenarios ───────────────────────────────────────
+
+function pathScen1(pts,t,svd){
+  // 2×3: R³ → R²  (points collapse onto V₁,V₂ plane)
+  const{U,s,V}=svd,{axis:aV,angle:tV}=axisAngle(V);
+  if(t<=1){const Rt=rotAxisAngle(aV,t*tV);return pts.map(p=>mulVec(Rt,p));}
+  const Vt=tr3(V),pVF=pts.map(p=>mulVec(Vt,p));
+  if(t<=2){
+    const b=t-1,s1t=1+b*(s[0]-1),s2t=1+b*(s[1]-1),zt=1-b;
+    return pVF.map(p=>mulVec(V,[p[0]*s1t,p[1]*s2t,p[2]*zt]));
+  }
+  const g=t-2,tU=Math.atan2(U[1][0],U[0][0]),cU=Math.cos(g*tU),sU=Math.sin(g*tU);
+  return pVF.map(p=>{const x=p[0]*s[0],y=p[1]*s[1];return mulVec(V,[cU*x-sU*y,sU*x+cU*y,0]);});
+}
+
+function pathScen2(pts2d,t,svd){
+  // 3×2: R² → R³  (points lift from z=0 plane into 3D)
+  const{U,s,V}=svd,tV=Math.atan2(V[1][0],V[0][0]);
+  if(t<=1){
+    const cV=Math.cos(t*tV),sV=Math.sin(t*tV);
+    return pts2d.map(p=>[cV*p[0]-sV*p[1],sV*p[0]+cV*p[1],0]);
+  }
+  const pR=pts2d.map(p=>[V[0][0]*p[0]+V[0][1]*p[1],V[1][0]*p[0]+V[1][1]*p[1]]);
+  if(t<=2){
+    const b=t-1,s1t=1+b*(s[0]-1),s2t=1+b*(s[1]-1);
+    return pR.map(p=>[p[0]*s1t,p[1]*s2t,0]);
+  }
+  const{axis:aU,angle:tU}=axisAngle(U),R3=rotAxisAngle(aU,(t-2)*tU);
+  return pR.map(p=>mulVec(R3,[p[0]*s[0],p[1]*s[1],0]));
+}
+
+function pathScen3(centered,t,pca){
+  // PCA: rotate to PC frame, then squash PC3, then PC2
+  const{V,s}=pca,Vt=tr3(V),{axis:aV,angle:tV}=axisAngle(V);
+  if(t<=1){const Rt=rotAxisAngle(aV,t*tV);return centered.map(p=>mulVec(Rt,p));}
+  const pPCF=centered.map(p=>mulVec(Vt,p));
+  if(t<=2){const b=t-1;return pPCF.map(p=>mulVec(V,[p[0],p[1],p[2]*(1-b)]));}
+  const g=t-2;return pPCF.map(p=>mulVec(V,[p[0],p[1]*(1-g),0]));
+}
+
+// ─── Bounding square helpers (for 2D input scenarios) ────────────────────────
+
+function buildBoundingSquare2D(pts2d){
+  let xn=Infinity,yn=Infinity,xx=-Infinity,yx=-Infinity;
+  for(const p of pts2d){if(p[0]<xn)xn=p[0];if(p[0]>xx)xx=p[0];if(p[1]<yn)yn=p[1];if(p[1]>yx)yx=p[1];}
+  const cx=(xn+xx)/2,cy=(yn+yx)/2,h=0.5*Math.max(xx-xn,yx-yn)*1.3+1e-6;
+  return[[cx-h,cy-h],[cx+h,cy-h],[cx+h,cy+h],[cx-h,cy+h]];
+}
+const SQUARE_EDGES=[[0,1],[1,2],[2,3],[3,0]];
+function squarePosFlat(corners){
+  return SQUARE_EDGES.flatMap(([i,j])=>[corners[i][0],corners[i][1],0,corners[j][0],corners[j][1],0]);
+}
+function squarePos3D(corners3){
+  return SQUARE_EDGES.flatMap(([i,j])=>[...corners3[i],...corners3[j]]);
+}
+
 // ─── Presets ──────────────────────────────────────────────────────────────────
 
 const PRESETS=[
@@ -280,6 +436,19 @@ function drawRoundRect(ctx,x,y,w,h,r){
   ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
 }
 function stageName(t){
+  if(scenarioMode===1){
+    if(t<0.01)return'Identity';if(t<=1)return'Stage 1 — V rotation in R³';
+    if(t<=2)return'Stage 2 — Σ scale + collapse';return'Stage 3 — U rotation → image plane';
+  }
+  if(scenarioMode===2){
+    if(t<0.01)return'Identity';if(t<=1)return'Stage 1 — V rotation in R²';
+    if(t<=2)return'Stage 2 — Σ stretching';return'Stage 3 — U lift to R³';
+  }
+  if(scenarioMode===3){
+    if(t<0.01)return'Original 3D cloud';if(t<=1)return'Stage 1 — Align to PC axes';
+    if(t<=2)return'Stage 2 — Project to PC1-PC2';return'Stage 3 — Project to PC1 line';
+  }
+  if(scenarioMode===4)return'Least Squares Solution (static)';
   if(t<0.01) return'Identity (I)';
   if(t<=1.0) return'Stage 1 — V rotation';
   if(t<=2.0) return'Stage 2 — Σ scaling';
@@ -296,8 +465,66 @@ function updatePanel(){
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='rgba(8,8,24,0.93)';drawRoundRect(ctx,0,0,W,H,28);ctx.fill();
   ctx.strokeStyle='rgba(80,120,255,0.45)';ctx.lineWidth=2;drawRoundRect(ctx,1,1,W-2,H-2,28);ctx.stroke();
-  const preset=PRESETS[presetIdx];const A=preset.A;const svd=currentSVD;
   let y=46,IND=30;
+
+  if(scenarioMode>0){
+    ctx.fillStyle='#7799ff';ctx.font='bold 28px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=38;
+    ctx.fillStyle='#ffdd55';ctx.font='bold 25px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
+    ctx.fillStyle='#aaaaaa';ctx.font='21px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
+    y=divider(ctx,y,W,IND);
+    ctx.fillStyle='#bbccee';ctx.font='20px monospace';
+    const desc={
+      1:['Matrix A (2×3): R³ → R²','A = [[1,2,0],[0,1,-1]]','Stage 1: rotate by V (3×3)','Stage 2: scale + collapse z','Stage 3: U rotation → plane'],
+      2:['Matrix A (3×2): R² → R³','A = [[1,2],[0,1],[-1,0]]','Stage 1: rotate by V (2×2)','Stage 2: scale by σ₁,σ₂','Stage 3: U lift into 3D'],
+      3:['30 3D pancake-cluster pts','Stage 1: align to PC axes','Stage 2: project to PC1-PC2','Stage 3: project to PC1 line','Blue plane = PC1-PC2 span'],
+      4:['4 planes: Ax+By+Cz+D=0','LS minimizes Σ(dist to planes)','White sphere = LS solution','Lines = plane residuals','(static visualization)'],
+    }[scenarioMode]||[];
+    for(const line of desc){ctx.fillText(line,IND,y);y+=28;}
+    y+=6;y=divider(ctx,y,W,IND);
+    if(scenarioMode===1&&s1Data){
+      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
+      ctx.fillStyle='#cccccc';ctx.font='20px monospace';
+      ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
+    }
+    if(scenarioMode===2&&s2Data){
+      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
+      ctx.fillStyle='#cccccc';ctx.font='20px monospace';
+      ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
+    }
+    if(scenarioMode===3&&s3Data){
+      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('PC singular values:',IND,y);y+=30;
+      const sv=s3Data.pca.s,tot=sv[0]**2+sv[1]**2+sv[2]**2||1;
+      ctx.fillStyle='#cccccc';ctx.font='20px monospace';
+      ctx.fillText(`σ₁=${sv[0].toFixed(3)}, σ₂=${sv[1].toFixed(3)}, σ₃=${sv[2].toFixed(3)}`,IND,y);y+=28;
+      ctx.fillText(`Var: ${(sv[0]**2/tot*100).toFixed(0)}% + ${(sv[1]**2/tot*100).toFixed(0)}% + ${(sv[2]**2/tot*100).toFixed(0)}%`,IND,y);y+=32;
+    }
+    if(scenarioMode===4&&s4Data){
+      const x=s4Data.lse.xLS;
+      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('LS Solution:',IND,y);y+=30;
+      ctx.fillStyle='#ffdd55';ctx.font='20px monospace';
+      ctx.fillText(`x=${x[0].toFixed(3)}, y=${x[1].toFixed(3)}, z=${x[2].toFixed(3)}`,IND,y);y+=28;
+      ctx.fillStyle='#cccccc';
+      ctx.fillText(`Residuals: ${s4Data.lse.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=32;
+    }
+    y=divider(ctx,y,W,IND);
+    ctx.fillStyle='#7799ff';ctx.font='bold 20px monospace';ctx.fillText('VR Controls',IND,y);y+=28;
+    ctx.font='17px monospace';
+    const c2='#88aadd';
+    for(const[dot,key,desc2] of[
+      ['#ffdd55','R trigger','→ advance t (0→3)'],['#ffdd55','L trigger','→ reverse t (3→0)'],
+      ['#ff8844','R grip','→ cycle 3×3 matrix'],['#44ffcc','L grip','→ cycle scenario mode'],
+      ['#44ffaa','L stick click','→ teleport'],['#44ffaa','R stick Y','→ zoom'],
+      ['#ff88ff','A button','→ grab/rotate/throw'],['#ff88ff','B button','→ music toggle'],
+      ['#aaaaaa','S key','→ cycle scenario (desktop)'],
+    ]){
+      ctx.fillStyle=dot;ctx.fillRect(IND,y-12,10,14);
+      ctx.fillStyle='#ffffff';ctx.fillText(key,IND+16,y);
+      ctx.fillStyle=c2;ctx.fillText(desc2,IND+170,y);y+=24;
+    }
+    panelTex.needsUpdate=true;return;
+  }
+
+  const preset=PRESETS[presetIdx];const A=preset.A;const svd=currentSVD;
   ctx.fillStyle='#7799ff';ctx.font='bold 28px monospace';ctx.fillText(`Matrix: ${preset.name}`,IND,y);y+=38;
   ctx.fillStyle='#bbccee';ctx.font='21px monospace';ctx.fillText('A =',IND,y);
   for(let r=0;r<3;r++){const row=A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
@@ -349,7 +576,9 @@ function updatePanel(){
     ['#ff88ff','A button','→ grab space: drag + rotate'],
     ['#ff88ff','A release','→ throw (momentum carry)'],
     ['#ff88ff','B button','→ toggle ambient music (VR)'],
+    ['#44ffcc','L grip','→ cycle scenario mode'],
     ['#aaaaaa','M key','→ toggle ambient music (desktop)'],
+    ['#aaaaaa','S key','→ cycle scenario (desktop)'],
   ];
   for(const[dot,key,desc] of ctrlRows){
     ctx.fillStyle=dot;ctx.fillRect(IND,y-12,10,14);
@@ -380,7 +609,8 @@ function updateWristHUD(){
   wristCtx.fillStyle='#ffdd55';wristCtx.font='bold 26px monospace';
   wristCtx.fillText(`t = ${tParam.toFixed(2)}`,10,36);
   wristCtx.fillStyle='#aaaacc';wristCtx.font='19px monospace';
-  wristCtx.fillText(PRESETS[presetIdx].name,10,66);
+  const modeName=scenarioMode===0?PRESETS[presetIdx].name:SCENARIO_NAMES[scenarioMode].slice(0,18);
+  wristCtx.fillText(modeName,10,66);
   wristCtx.fillStyle='#88bbff';
   wristCtx.fillText(stageName(tParam).slice(0,22),10,98);
   wristTex.needsUpdate=true;
@@ -395,10 +625,12 @@ Object.assign(hud.style,{position:'absolute',top:'12px',left:'12px',color:'#fff'
 document.body.appendChild(hud);
 
 function updateHUD(){
-  hud.innerHTML=`Matrix: <b>${PRESETS[presetIdx].name}</b> [1/2/3 | G]<br>`+
+  const modeName=scenarioMode===0?`Matrix: <b>${PRESETS[presetIdx].name}</b> [1/2/3|G]`
+    :`Scenario: <b>${SCENARIO_NAMES[scenarioMode]}</b> [S to cycle]`;
+  hud.innerHTML=`${modeName}<br>`+
     `t = <b>${tParam.toFixed(2)}</b> / 3.00 &nbsp; <b>${stageName(tParam)}</b><br>`+
     `Zoom: <b>${rootScale.toFixed(2)}x</b><br>`+
-    `<span style="color:#aaa;font-size:12px">Hold ← → to scrub &nbsp;|&nbsp; VR: triggers=scrub, R-grip=matrix, L-stick=teleport, R-stick=zoom, A=grab/throw &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}</span>`;
+    `<span style="color:#aaa;font-size:12px">← →=scrub &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; G=matrix &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}</span>`;
 }
 
 // ─── Root group ───────────────────────────────────────────────────────────────
@@ -517,9 +749,19 @@ let tParam=0,presetIdx=0,currentSVD=null,points=[],cubeCorners=[];
 let origIM,transIM,cubeOL,cubeTL,dispL,axisVL,axisUL;
 let svLabels=[];
 
+// ─── Scenario mode ────────────────────────────────────────────────────────────
+let scenarioMode=0;
+const SCENARIO_NAMES=['3×3 SVD','2×3 Projection (R³→R²)','3×2 Lifting (R²→R³)','3D PCA','Least Squares'];
+let prevLeftGripPressed=false;
+let s1Data=null,s2Data=null,s3Data=null,s4Data=null;
+
 // ─── Rebuild scene ────────────────────────────────────────────────────────────
 
 function rebuildScene(speak=false){
+  if(scenarioMode===1){buildScenario1(speak);return;}
+  if(scenarioMode===2){buildScenario2(speak);return;}
+  if(scenarioMode===3){buildScenario3(speak);return;}
+  if(scenarioMode===4){buildScenario4(speak);return;}
   root.clear();svLabels=[];
   if(speak)speakText(`Matrix: ${PRESETS[presetIdx].name}`);
   root.add(new THREE.AxesHelper(1.8));
@@ -580,6 +822,10 @@ function rebuildScene(speak=false){
 // ─── Update scene for current t ───────────────────────────────────────────────
 
 function updateSceneForT(){
+  if(scenarioMode===1)return updateScenario1();
+  if(scenarioMode===2)return updateScenario2();
+  if(scenarioMode===3)return updateScenario3();
+  if(scenarioMode===4)return updateScenario4();
   const M=svdPath(tParam,currentSVD);
   const tPts=applyM(points,M);
   const tCube=applyM(cubeCorners,M);
@@ -611,6 +857,205 @@ function updateSceneForT(){
 
   return tPts;
 }
+
+// ─── Scenario helpers ─────────────────────────────────────────────────────────
+
+function makeSemiPlane(normal3,color,opacity,size){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(size,size),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));
+  const n=new THREE.Vector3(normal3[0],normal3[1],normal3[2]).normalize();
+  const up=Math.abs(n.y)>0.99?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),n);
+  return m;
+}
+
+function makePointCloud(pts,color,opacity){
+  const sGeo=new THREE.SphereGeometry(0.05,8,6);
+  const im=new THREE.InstancedMesh(sGeo,
+    new THREE.MeshLambertMaterial({color,transparent:opacity<1,opacity}),pts.length);
+  for(let i=0;i<pts.length;i++){dummy.position.set(...pts[i]);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);}
+  im.instanceMatrix.needsUpdate=true;return im;
+}
+
+function updateIM(im,pts){
+  for(let i=0;i<pts.length;i++){dummy.position.set(...pts[i]);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);}
+  im.instanceMatrix.needsUpdate=true;
+}
+
+function sceneCommon(speak,name){
+  root.clear();svLabels=[];
+  root.add(new THREE.AxesHelper(1.8));
+  if(speak)speakText(name);
+  if(pulseRing){root.remove(pulseRing);pulseRing=null;}
+  pulseAge=-1;lastTFloor=0;lastSpokenStage=-1;
+}
+
+// ─── Scenario 1: 2×3 Projection (R³→R²) ─────────────────────────────────────
+
+function buildScenario1(speak){
+  sceneCommon(speak,SCENARIO_NAMES[1]);
+  const A=[[1,2,0],[0,1,-1]],svd=svd2x3(A);
+  const pts=genPoints(30,7);
+  const V=svd.V;
+  // Image plane: normal = V[:,2] (third right singular vector)
+  root.add(makeSemiPlane([V[0][2],V[1][2],V[2][2]],0x4466ff,0.18,5));
+  // Original (cyan ghost) + transformed (orange)
+  const oIM=makePointCloud(pts,0x00eeff,0.45);
+  const tIM=makePointCloud(pts,0xff7722,1.0);
+  root.add(oIM);root.add(tIM);
+  // Singular vector arrows (V columns)
+  for(let i=0;i<2;i++){
+    const d=[V[0][i],V[1][i],V[2][i]],len=Math.max(0.25,svd.s[i]*0.75);
+    root.add(new THREE.ArrowHelper(new THREE.Vector3(...d).normalize(),new THREE.Vector3(),len,SV_HEX[i],len*0.25,len*0.13));
+    const lbl=makeLabel(`v${i+1}  σ=${svd.s[i].toFixed(2)}`,SV_COLORS[i]);
+    lbl.position.set(d[0]*len*1.4,d[1]*len*1.4,d[2]*len*1.4);root.add(lbl);
+  }
+  const lbl=makeLabel('2×3 Projection  R³→R²','#88aaff');lbl.position.set(0,2.3,0);root.add(lbl);
+  // White cube (original 3D) + red cube (collapses to 2D plane)
+  const cubeC=buildCubeCorners(pts);
+  const cubeW=makeSegs(cubePosArray(cubeC),matCO);
+  const cubeR=makeSegs(cubePosArray(cubeC),matCT);
+  root.add(cubeW);root.add(cubeR);
+  s1Data={svd,pts,tIM,cubeC,cubeR};
+  initTrails();updateScenario1();updatePanel();updateHUD();updateWristHUD();
+}
+
+function updateScenario1(){
+  if(!s1Data)return[];
+  const tPts=pathScen1(s1Data.pts,tParam,s1Data.svd);
+  updateIM(s1Data.tIM,tPts);
+  const tCube=pathScen1(s1Data.cubeC,tParam,s1Data.svd);
+  setLineSegs(s1Data.cubeR,cubePosArray(tCube));
+  return tPts;
+}
+
+// ─── Scenario 2: 3×2 Lifting (R²→R³) ────────────────────────────────────────
+
+function buildScenario2(speak){
+  sceneCommon(speak,SCENARIO_NAMES[2]);
+  const A=[[1,2],[0,1],[-1,0]],svd=svd3x2(A);
+  const pts2d=genPoints2D(30,7);
+  const pts3d=pts2d.map(p=>[p[0],p[1],0]);
+  // Domain plane (xy, z=0)
+  root.add(makeSemiPlane([0,0,1],0xff4422,0.15,5));
+  const oIM=makePointCloud(pts3d,0x00eeff,0.45);
+  const tIM=makePointCloud(pts3d,0xff7722,1.0);
+  root.add(oIM);root.add(tIM);
+  // U singular vector arrows (left singular vectors — columns of U)
+  const U=svd.U;
+  for(let i=0;i<2;i++){
+    const d=[U[0][i],U[1][i],U[2][i]],len=Math.max(0.25,svd.s[i]*0.75);
+    root.add(new THREE.ArrowHelper(new THREE.Vector3(...d).normalize(),new THREE.Vector3(),len,SV_HEX[i],len*0.25,len*0.13));
+    const lbl=makeLabel(`u${i+1}  σ=${svd.s[i].toFixed(2)}`,SV_COLORS[i]);
+    lbl.position.set(d[0]*len*1.4,d[1]*len*1.4,d[2]*len*1.4);root.add(lbl);
+  }
+  const lbl=makeLabel('3×2 Lifting  R²→R³','#88aaff');lbl.position.set(0,2.3,0);root.add(lbl);
+  // White cube: static reference for the 3D output space
+  const ptsFull=pathScen2(pts2d,3.0,svd);
+  root.add(makeSegs(cubePosArray(buildCubeCorners(ptsFull)),matCO));
+  // White square (flat 2D input) + red square (lifts into 3D)
+  const squareC=buildBoundingSquare2D(pts2d);
+  const squareW=makeSegs(squarePosFlat(squareC),matCO);
+  const squareR=makeSegs(squarePosFlat(squareC),matCT);
+  root.add(squareW);root.add(squareR);
+  s2Data={svd,pts2d,tIM,squareC,squareR};
+  initTrails();updateScenario2();updatePanel();updateHUD();updateWristHUD();
+}
+
+function updateScenario2(){
+  if(!s2Data)return[];
+  const tPts=pathScen2(s2Data.pts2d,tParam,s2Data.svd);
+  updateIM(s2Data.tIM,tPts);
+  const tSquare=pathScen2(s2Data.squareC,tParam,s2Data.svd);
+  setLineSegs(s2Data.squareR,squarePos3D(tSquare));
+  return tPts;
+}
+
+// ─── Scenario 3: 3D PCA ───────────────────────────────────────────────────────
+
+function buildScenario3(speak){
+  sceneCommon(speak,SCENARIO_NAMES[3]);
+  const pts=genPancake3D(60,11);
+  const pca=pca3(pts);
+  const V=pca.V,mn=pca.mean;
+  // Best-fit PC1-PC2 plane (normal = V[:,2])
+  const planeMesh=makeSemiPlane([V[0][2],V[1][2],V[2][2]],0x22ff88,0.15,5.5);
+  root.add(planeMesh);
+  // PC arrows at mean, colored differently
+  const pcColors=[0xff4444,0x44ff88,0x4488ff];
+  for(let i=0;i<3;i++){
+    const d=[V[0][i],V[1][i],V[2][i]],len=Math.max(0.3,pca.s[i]*1.3);
+    const mnV=new THREE.Vector3(mn[0],mn[1],mn[2]);
+    root.add(new THREE.ArrowHelper(new THREE.Vector3(...d).normalize(),mnV,len,pcColors[i],len*0.22,len*0.1));
+    const lbl=makeLabel(`PC${i+1}  σ=${pca.s[i].toFixed(2)}`,SV_COLORS[i]);
+    lbl.position.set(mn[0]+d[0]*len*1.4,mn[1]+d[1]*len*1.4,mn[2]+d[2]*len*1.4);root.add(lbl);
+  }
+  const oIM=makePointCloud(pts,0x00eeff,0.45);
+  const tIM=makePointCloud(pts,0xff7722,1.0);
+  root.add(oIM);root.add(tIM);
+  // White bounding cube (static reference)
+  root.add(makeSegs(cubePosArray(buildCubeCorners(pts)),matCO));
+  const lbl=makeLabel('3D PCA','#88aaff');lbl.position.set(0,2.5,0);root.add(lbl);
+  s3Data={pca,pts,tIM};
+  initTrails();updateScenario3();updatePanel();updateHUD();updateWristHUD();
+}
+
+function updateScenario3(){
+  if(!s3Data)return[];
+  const{pca,tIM}=s3Data;
+  const rel=pathScen3(pca.centered,tParam,pca);
+  const tPts=rel.map(p=>[p[0]+pca.mean[0],p[1]+pca.mean[1],p[2]+pca.mean[2]]);
+  updateIM(tIM,tPts);return tPts;
+}
+
+// ─── Scenario 4: Least Squares ────────────────────────────────────────────────
+
+function buildScenario4(speak){
+  sceneCommon(speak,SCENARIO_NAMES[4]);
+  const planes=[[1,1,1,-3],[1,-1,0,0],[0,1,-1,1],[1,0,-2,2]];
+  const lse=lseSolve(planes);
+  const xLS=lse.xLS;
+  const pColors=[0xff4444,0x44ff44,0x4488ff,0xffaa22];
+  // Semi-transparent plane quads centred at nearest point on each plane to origin
+  for(let i=0;i<planes.length;i++){
+    const[a,bv,c,d]=planes[i],nm=Math.sqrt(a*a+bv*bv+c*c);
+    const pm=makeSemiPlane([a/nm,bv/nm,c/nm],pColors[i],0.20,3.5);
+    pm.position.set(-d*a/(nm*nm),-d*bv/(nm*nm),-d*c/(nm*nm));
+    root.add(pm);
+    // Square wireframe border matching the plane boundary
+    const h=1.75; // half of PlaneGeometry size 3.5
+    const eq=new THREE.BufferGeometry().setFromPoints(
+      [[-h,-h,0],[h,-h,0],[h,h,0],[-h,h,0],[-h,-h,0]].map(v=>new THREE.Vector3(...v)));
+    const el=new THREE.Line(eq,new THREE.LineBasicMaterial({color:pColors[i],transparent:true,opacity:0.75}));
+    el.position.copy(pm.position);el.quaternion.copy(pm.quaternion);root.add(el);
+  }
+  // Residual lines from LS point to each plane
+  const resVerts=[];
+  for(let i=0;i<lse.normals.length;i++){
+    const n=lse.normals[i],bi=lse.b[i];
+    const dist=n[0]*xLS[0]+n[1]*xLS[1]+n[2]*xLS[2]-bi;
+    const proj=xLS.map((v,j)=>v-dist*n[j]);
+    resVerts.push(...xLS,...proj);
+  }
+  const resGeo=new THREE.BufferGeometry();
+  resGeo.setAttribute('position',new THREE.Float32BufferAttribute(resVerts,3));
+  root.add(new THREE.LineSegments(resGeo,
+    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.75})));
+  // LS solution marker (bright glowing sphere)
+  const lsMat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:0.9});
+  const lsMesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,16,12),lsMat);
+  lsMesh.position.set(...xLS);root.add(lsMesh);
+  // White bounding cube around the scene region
+  const cubeRegion=buildCubeCorners([[xLS[0]-2,xLS[1]-2,xLS[2]-2],[xLS[0]+2,xLS[1]+2,xLS[2]+2]]);
+  root.add(makeSegs(cubePosArray(cubeRegion),matCO));
+  const lbl=makeLabel('Least Squares','#88aaff');lbl.position.set(0,2.5,0);root.add(lbl);
+  const lbl2=makeLabel(`x=[${xLS.map(v=>v.toFixed(2)).join(', ')}]`,'#ffdd55');
+  lbl2.position.set(xLS[0]+0.35,xLS[1]+0.35,xLS[2]+0.35);root.add(lbl2);
+  s4Data={lse,planes};
+  initTrails();updatePanel();updateHUD();updateWristHUD();
+}
+
+function updateScenario4(){return[];}
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
@@ -751,6 +1196,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='='||e.key==='+'){rootScale=Math.min(2.0,rootScale+0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key==='-'){rootScale=Math.max(0.1,rootScale-0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key.toLowerCase()==='m')toggleMusic();
+  if(e.key.toLowerCase()==='s'){scenarioMode=(scenarioMode+1)%5;tParam=0;rebuildScene(true);}
 });
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 window.addEventListener('resize',()=>{
@@ -836,6 +1282,12 @@ renderer.setAnimationLoop(()=>{
           if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
           if(thumbBtn&&!prevThumbPressed&&teleportTarget)doTeleport(teleportTarget);
           prevThumbPressed=thumbBtn;
+          // Left grip → cycle scenario mode
+          if(grip&&!prevLeftGripPressed){
+            scenarioMode=(scenarioMode+1)%5;
+            tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
+          }
+          prevLeftGripPressed=grip;
           // Attach wrist HUD to left controller once
           if(!wristHUDAttached){ctrlGrp.add(wristMesh);wristHUDAttached=true;}
         }

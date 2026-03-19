@@ -4,7 +4,14 @@
       "Bash(git:*)",
       "Bash(npm run:*)",
       "Bash(cp -r D:/Visualizer2026-WebXR/dist/. D:/gh-pages-deploy/)",
-      "Read(//d/gh-pages-deploy/**)"
+      "Read(//d/gh-pages-deploy/**)",
+      "Bash(npm install:*)",
+      "WebSearch",
+      "WebFetch(domain:www.eso.org)",
+      "WebFetch(domain:svs.gsfc.nasa.gov)",
+      "WebFetch(domain:polyhaven.com)",
+      "Bash(git rm:*)",
+      "Bash(ls *.py)"
     ]
   }
 }
