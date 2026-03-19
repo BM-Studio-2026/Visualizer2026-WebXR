@@ -86,7 +86,6 @@ The entire application is a single `main.js` file. SVD, PCA, and least-squares a
 ├── vite.config.js        # Multi-page build, GitHub Pages base path
 ├── public/
 │   └── sky.jpg           # Milky Way equirectangular photo (7.9 MB)
-├── TECHNICAL_REPORT.md   # Full technical report
 └── 8_LSE.py              # Streamlit reference script (least squares)
 ```
 
@@ -96,7 +95,6 @@ The entire application is a single `main.js` file. SVD, PCA, and least-squares a
 
 - [Visualizer2026](https://github.com/bm-studio-2026/Visualizer2026) — the main desktop project (Streamlit + Plotly)
 - [Live Desktop App](https://bm-studio-2026.github.io/Visualizer2026/)
-- [Technical Report](./TECHNICAL_REPORT.md)
 
 ---
 
