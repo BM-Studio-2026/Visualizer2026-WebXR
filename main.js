@@ -470,11 +470,11 @@ function updatePanel(){
   let y=46,IND=30;
 
   if(scenarioMode>0){
-    ctx.fillStyle='#7799ff';ctx.font='bold 28px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=38;
+    ctx.fillStyle='#7799ff';ctx.font='bold 34px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=42;
     ctx.fillStyle='#ffdd55';ctx.font='bold 25px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
     ctx.fillStyle='#aaaaaa';ctx.font='21px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
     y=divider(ctx,y,W,IND);
-    // ── Mode 1: 2×3 matrix display ──────────────────────────────────────────
+    // ── Mode 1: 2×3 matrix + legend ─────────────────────────────────────────
     if(scenarioMode===1&&s1Data){
       ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Matrix A (2×3):  R³ → R²',IND,y);y+=26;
       ctx.fillStyle='#bbccee';ctx.font='21px monospace';ctx.fillText('A =',IND,y);
@@ -486,8 +486,20 @@ function updatePanel(){
       ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
       ctx.fillStyle='#cccccc';ctx.font='20px monospace';
       ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
+      y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='18px monospace';
+      for(const[col,lbl] of[
+        ['#00eeff','Original 3D points (ghost)'],
+        ['#ff7722','Projected points'],
+        ['#dddddd','Original bounding cube (white)'],
+        ['#ff4444','Collapsing cube → image plane'],
+        ['#4466ff','Image plane (SVD null space)'],
+        [SV_COLORS[0],'v₁ — 1st right singular vec (σ₁)'],
+        [SV_COLORS[1],'v₂ — 2nd right singular vec (σ₂)'],
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
     }
-    // ── Mode 2: 3×2 matrix display ──────────────────────────────────────────
+    // ── Mode 2: 3×2 matrix + legend ─────────────────────────────────────────
     if(scenarioMode===2&&s2Data){
       ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Matrix A (3×2):  R² → R³',IND,y);y+=26;
       ctx.fillStyle='#bbccee';ctx.font='21px monospace';ctx.fillText('A =',IND,y);
@@ -499,8 +511,20 @@ function updatePanel(){
       ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
       ctx.fillStyle='#cccccc';ctx.font='20px monospace';
       ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
+      y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='18px monospace';
+      for(const[col,lbl] of[
+        ['#00eeff','Original 2D input points (ghost)'],
+        ['#ff7722','Lifted / transformed points'],
+        ['#dddddd','Input square / output cube (white)'],
+        ['#ff4444','Animating square → 3D (red)'],
+        ['#ff4422','Input domain plane (z = 0)'],
+        [SV_COLORS[0],'u₁ — 1st left singular vec (σ₁)'],
+        [SV_COLORS[1],'u₂ — 2nd left singular vec (σ₂)'],
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
     }
-    // ── Mode 3: covariance matrix, eigenvalues, variance retained ───────────
+    // ── Mode 3: covariance / eigenvalues / variance + legend ─────────────────
     if(scenarioMode===3&&s3Data){
       const{Cov,evals}=s3Data.pca;
       ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Covariance matrix (normalized):',IND,y);y+=26;
@@ -517,8 +541,20 @@ function updatePanel(){
       y=divider(ctx,y,W,IND);
       ctx.fillStyle='#bbccee';ctx.font='20px monospace';
       for(const line of['Stage 1: align to PC axes','Stage 2: project to PC1-PC2 plane','Stage 3: project to PC1 line']){ctx.fillText(line,IND,y);y+=28;}
+      y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='18px monospace';
+      for(const[col,lbl] of[
+        ['#00eeff','Original 3D cloud (ghost)'],
+        ['#ff7722','Aligned / projected points'],
+        ['#dddddd','Bounding cube (reference)'],
+        ['#22ff88','PC1-PC2 best-fit plane'],
+        ['#ff4444','PC1 — largest variance axis'],
+        ['#44ff88','PC2 — 2nd variance axis'],
+        ['#4488ff','PC3 — smallest variance axis'],
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
     }
-    // ── Mode 4: LSE ─────────────────────────────────────────────────────────
+    // ── Mode 4: LSE + legend ─────────────────────────────────────────────────
     if(scenarioMode===4&&s4Data){
       ctx.fillStyle='#bbccee';ctx.font='20px monospace';
       for(const line of['4 planes: Ax+By+Cz+D=0','LS minimizes Σ(dist to planes)','White sphere = LS solution','Lines = plane residuals','(static visualization)']){ctx.fillText(line,IND,y);y+=28;}
@@ -529,6 +565,18 @@ function updatePanel(){
       ctx.fillText(`x=${x[0].toFixed(3)}, y=${x[1].toFixed(3)}, z=${x[2].toFixed(3)}`,IND,y);y+=28;
       ctx.fillStyle='#cccccc';
       ctx.fillText(`Residuals: ${s4Data.lse.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=32;
+      y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#88bbff';ctx.font='bold 20px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='18px monospace';
+      for(const[col,lbl] of[
+        ['#ffffcc','LS solution (glowing sphere)'],
+        ['#aaaaaa','Residual lines to planes'],
+        ['#ff4444','Plane 1:  x + y + z = 3'],
+        ['#44ff44','Plane 2:  x − y = 0'],
+        ['#4488ff','Plane 3:  y − z = −1'],
+        ['#ffaa22','Plane 4:  x − 2z = −2'],
+        ['#dddddd','Scene bounds (white cube)'],
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
     }
     y=divider(ctx,y,W,IND);
     ctx.fillStyle='#7799ff';ctx.font='bold 20px monospace';ctx.fillText('VR Controls',IND,y);y+=28;
@@ -549,7 +597,8 @@ function updatePanel(){
   }
 
   const preset=PRESETS[presetIdx];const A=preset.A;const svd=currentSVD;
-  ctx.fillStyle='#7799ff';ctx.font='bold 28px monospace';ctx.fillText(`Matrix: ${preset.name}`,IND,y);y+=38;
+  ctx.fillStyle='#7799ff';ctx.font='bold 34px monospace';ctx.fillText('3×3 SVD Transform',IND,y);y+=42;
+  ctx.fillStyle='#88aadd';ctx.font='bold 22px monospace';ctx.fillText(`Preset: ${preset.name}`,IND,y);y+=30;
   ctx.fillStyle='#bbccee';ctx.font='21px monospace';ctx.fillText('A =',IND,y);
   for(let r=0;r<3;r++){const row=A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
   y+=3*29+8;y=divider(ctx,y,W,IND);
