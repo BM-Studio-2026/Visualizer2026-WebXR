@@ -475,7 +475,9 @@ function updatePanel(){
       ctx.fillStyle='#ffdd55';ctx.font='bold 27px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
       ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
     } else {
-      ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND,y);y+=36;
+      const s4t=(s4Data?s4Data.planeCount-3:0);
+      ctx.fillStyle='#ffdd55';ctx.font='bold 27px monospace';ctx.fillText(`t = ${s4t.toFixed(2)}`,IND,y);
+      ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
     }
     y=divider(ctx,y,W,IND);
     // ── Mode 1: 2×3 matrix + legend ─────────────────────────────────────────
@@ -695,12 +697,14 @@ function updateWristHUD(){
   // ── Title ────────────────────────────────────────────────────────────────────
   const title=scenarioMode===0?'3×3 SVD Transform':SCENARIO_NAMES[scenarioMode];
   ctx.fillStyle='#7799ff';ctx.font='bold 26px monospace';ctx.fillText(title,P,y+22);y+=28;
-  // t value + stage name (t hidden for mode 4)
+  // t value + stage name
   if(scenarioMode!==4){
     ctx.fillStyle='#ffdd55';ctx.font='bold 21px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,P,y+18);
     ctx.fillStyle='#aaaacc';ctx.font='15px monospace';ctx.fillText(stageName(tParam),P+108,y+18);y+=24;
   } else {
-    ctx.fillStyle='#aaaacc';ctx.font='17px monospace';ctx.fillText(stageName(tParam),P,y+18);y+=24;
+    const s4t=(s4Data?s4Data.planeCount-3:0);
+    ctx.fillStyle='#ffdd55';ctx.font='bold 21px monospace';ctx.fillText(`t = ${s4t.toFixed(2)}`,P,y+18);
+    ctx.fillStyle='#aaaacc';ctx.font='15px monospace';ctx.fillText(stageName(tParam),P+108,y+18);y+=24;
   }
   wDiv();
   // ── Main info (per scenario) ──────────────────────────────────────────────────
@@ -781,9 +785,10 @@ document.body.appendChild(hud);
 function updateHUD(){
   const modeName=scenarioMode===0?`Matrix: <b>${PRESETS[presetIdx].name}</b> [1/2/3|G]`
     :`Scenario: <b>${SCENARIO_NAMES[scenarioMode]}</b> [S to cycle]`;
+  const s4t=s4Data?s4Data.planeCount-3:0;
   const tLine=scenarioMode!==4
     ?`t = <b>${tParam.toFixed(2)}</b> / 3.00 &nbsp; <b>${stageName(tParam)}</b><br>`
-    :`<b>${stageName(tParam)}</b><br>`;
+    :`t = <b>${s4t.toFixed(2)}</b> &nbsp; <b>${stageName(tParam)}</b><br>`;
   const ctrlHint=scenarioMode!==4
     ?`← →=scrub &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; G=matrix &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}`
     :`← →=add/remove plane &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}`;
@@ -826,6 +831,34 @@ function buildGridBase(){
   for(const y of G_VALS)for(const z of G_VALS){gridBaseX[ix++]=-1.5;gridBaseX[ix++]=y;gridBaseX[ix++]=z;gridBaseX[ix++]=1.5;gridBaseX[ix++]=y;gridBaseX[ix++]=z;}
   for(const x of G_VALS)for(const z of G_VALS){gridBaseY[iy++]=x;gridBaseY[iy++]=-1.5;gridBaseY[iy++]=z;gridBaseY[iy++]=x;gridBaseY[iy++]=1.5;gridBaseY[iy++]=z;}
   for(const x of G_VALS)for(const y of G_VALS){gridBaseZ[iz++]=x;gridBaseZ[iz++]=y;gridBaseZ[iz++]=-1.5;gridBaseZ[iz++]=x;gridBaseZ[iz++]=y;gridBaseZ[iz++]=1.5;}
+}
+
+// ─── Plane-plane intersection helper ─────────────────────────────────────────
+
+function computeIntersectLine(p1,p2,extent){
+  const[a1,b1,c1,d1]=p1,[a2,b2,c2,d2]=p2;
+  // Direction = n1 × n2
+  const vx=b1*c2-c1*b2,vy=c1*a2-a1*c2,vz=a1*b2-b1*a2;
+  const vLen=Math.sqrt(vx*vx+vy*vy+vz*vz);
+  if(vLen<1e-10)return null;
+  const dx=vx/vLen,dy=vy/vLen,dz=vz/vLen;
+  // Find point on line: zero out the coord where |dir| is largest, solve 2×2
+  const ax=Math.abs(dx),ay=Math.abs(dy),az=Math.abs(dz);
+  let x0=0,y0=0,z0=0;
+  if(ax>=ay&&ax>=az){
+    const det=b1*c2-b2*c1;if(Math.abs(det)<1e-10)return null;
+    y0=(-d1*c2+c1*d2)/det;z0=(-b1*d2+b2*d1)/det;
+  }else if(ay>=ax&&ay>=az){
+    const det=a1*c2-a2*c1;if(Math.abs(det)<1e-10)return null;
+    x0=(-d1*c2+c1*d2)/det;z0=(-a1*d2+a2*d1)/det;
+  }else{
+    const det=a1*b2-a2*b1;if(Math.abs(det)<1e-10)return null;
+    x0=(-d1*b2+b1*d2)/det;y0=(-a1*d2+a2*d1)/det;
+  }
+  return{
+    start:[x0-dx*extent,y0-dy*extent,z0-dz*extent],
+    end:  [x0+dx*extent,y0+dy*extent,z0+dz*extent],
+  };
 }
 
 // ─── Scene object helpers ─────────────────────────────────────────────────────
@@ -1274,6 +1307,21 @@ function buildScenario4(speak){
     resLines.push({line,attr,arr});
   }
 
+  // Pairwise intersection lines — visible only when planeCount===3
+  const IPAIRS=[[0,1],[0,2],[1,2]];
+  const intersectLines=[];
+  for(const[i,j] of IPAIRS){
+    const seg=computeIntersectLine(planes[i],planes[j],5);
+    if(seg){
+      const geo=new THREE.BufferGeometry().setFromPoints(
+        [new THREE.Vector3(...seg.start),new THREE.Vector3(...seg.end)]);
+      const col=new THREE.Color(S4_PCOLORS[i]).lerp(new THREE.Color(S4_PCOLORS[j]),0.5);
+      const l=new THREE.Line(geo,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.90}));
+      l.visible=false;root.add(l);
+      intersectLines.push(l);
+    }else{intersectLines.push(null);}
+  }
+
   // LS sphere — smaller, high emissive for bloom
   const lsMat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5});
   const lsSphere=new THREE.Mesh(new THREE.SphereGeometry(0.04,16,12),lsMat);
@@ -1288,7 +1336,7 @@ function buildScenario4(speak){
 
   const lbl=makeLabel('Least Squares','#88aaff','big');lbl.position.set(0,2.65,0);root.add(lbl);
 
-  s4Data={lse3,lse4,lse5,planes,planeMeshes,resLines,lsSphere,lsMat,
+  s4Data={lse3,lse4,lse5,planes,planeMeshes,resLines,intersectLines,lsSphere,lsMat,
     planeCount:prevCount,animFrom:null,animTo:null,animProgress:1};
   initTrails();updateScenario4();updatePanel();updateHUD();updateWristHUD();
 }
@@ -1317,6 +1365,11 @@ function updateScenario4(){
   if(cnt>=4){planeMeshes[3].pm.material.opacity=0.22;planeMeshes[3].el.material.opacity=0.80;}
   planeMeshes[4].pm.visible=cnt>=5;planeMeshes[4].el.visible=cnt>=5;
   if(cnt>=5){planeMeshes[4].pm.material.opacity=0.22;planeMeshes[4].el.material.opacity=0.80;}
+
+  // Intersection lines — only when 3 planes active
+  if(s4Data.intersectLines){
+    for(const l of s4Data.intersectLines){if(l)l.visible=(cnt===3);}
+  }
 
   // Per-plane colored residual lines from sphere to foot on each plane
   for(let i=0;i<5;i++){
