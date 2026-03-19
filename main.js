@@ -450,12 +450,7 @@ function stageName(t){
     if(t<0.01)return'Original 3D cloud';if(t<=1)return'Stage 1 — Align to PC axes';
     if(t<=2)return'Stage 2 — Project to PC1-PC2';return'Stage 3 — Project to PC1 line';
   }
-  if(scenarioMode===4){
-    if(tParam<0.01)return'Stage 0 — 3 planes';
-    if(tParam<=1)return'Stage 0 — 3 planes';
-    if(tParam<=2)return'Stage 1 — 4th plane added';
-    return'Stage 2 — 5th plane added';
-  }
+  if(scenarioMode===4){const cnt=s4Data?s4Data.planeCount:3;return`Least Squares \u2014 ${cnt} planes`;}
   if(t<0.01) return'Identity (I)';
   if(t<=1.0) return'Stage 1 — V rotation';
   if(t<=2.0) return'Stage 2 — Σ scaling';
@@ -561,13 +556,13 @@ function updatePanel(){
     }
     // ── Mode 4: LSE staged + legend ──────────────────────────────────────────
     if(scenarioMode===4&&s4Data){
-      const stg=Math.min(2,Math.floor(tParam));
-      const lseCur=stg===0?s4Data.lse3:stg===1?s4Data.lse4:s4Data.lse5;
-      const nPlanes=stg+3;
+      const cnt=s4Data.planeCount;
+      const lseCur=[s4Data.lse3,s4Data.lse4,s4Data.lse5][cnt-3];
+      const nPlanes=cnt;
       ctx.fillStyle='#bbccee';ctx.font='22px monospace';
-      ctx.fillText(`Stage ${stg}: ${nPlanes} planes active`,IND,y);y+=28;
+      ctx.fillText(`${nPlanes} planes active`,IND,y);y+=28;
       ctx.fillText('LS minimizes \u03a3(dist\u00b2 to planes)',IND,y);y+=28;
-      ctx.fillText('Sphere animates as planes are added',IND,y);y+=28;
+      ctx.fillText('R-trig: add plane   L-trig: remove',IND,y);y+=28;
       y+=4;y=divider(ctx,y,W,IND);
       const x=lseCur.xLS;
       ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('LS Solution:',IND,y);y+=30;
@@ -725,10 +720,10 @@ function updateWristHUD(){
     ctx.fillStyle='#88aadd';ctx.fillText('60-point pancake cloud  \u2192  PCA',P,y+16);y+=22;
   }
   if(scenarioMode===4&&s4Data){
-    const stg=Math.min(2,Math.floor(tParam));
-    const lseCur=stg===0?s4Data.lse3:stg===1?s4Data.lse4:s4Data.lse5;
+    const cnt=s4Data.planeCount;
+    const lseCur=[s4Data.lse3,s4Data.lse4,s4Data.lse5][cnt-3];
     const xls=lseCur.xLS;
-    ctx.fillStyle='#cccccc';ctx.fillText(`Stage ${stg}: ${stg+3} planes active`,P,y+16);y+=21;
+    ctx.fillStyle='#cccccc';ctx.fillText(`${cnt} planes active`,P,y+16);y+=21;
     ctx.fillStyle='#ffdd55';ctx.fillText(`x=${xls[0].toFixed(2)}  y=${xls[1].toFixed(2)}  z=${xls[2].toFixed(2)}`,P,y+16);y+=21;
     ctx.fillStyle='#88aadd';ctx.fillText(`Res: ${lseCur.dists.map(d=>d.toFixed(2)).join('  ')}`,P,y+16);y+=22;
   }
@@ -748,9 +743,9 @@ function updateWristHUD(){
     3:[['t:0\u21921','Rotate cloud to align with PC axes'],
        ['t:1\u21922','Project out PC3  \u2192  flatten to 2D plane'],
        ['t:2\u21923','Project out PC2  \u2192  collapse to 1D line']],
-    4:[['t:0\u21921','3 planes shown, LS sphere at initial solution'],
-       ['t:1\u21922','4th plane fades in, sphere animates to new LS'],
-       ['t:2\u21923','5th plane fades in, sphere animates again']],
+    4:[['R-trig','Add a plane  (3 \u2192 4 \u2192 5)'],
+       ['L-trig','Remove a plane  (5 \u2192 4 \u2192 3)'],
+       ['\u2014','Sphere animates to new LS solution']],
   }[scenarioMode]||[];
   ctx.font='15px monospace';
   for(let i=0;i<steps.length;i++){
@@ -1219,7 +1214,7 @@ function buildScenario4(speak){
   const lsMat=new THREE.MeshStandardMaterial({
     color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5,
   });
-  const lsSphere=new THREE.Mesh(new THREE.SphereGeometry(0.12,16,12),lsMat);
+  const lsSphere=new THREE.Mesh(new THREE.SphereGeometry(0.06,16,12),lsMat);
   lsSphere.position.set(...lse3.xLS);
   root.add(lsSphere);
 
@@ -1232,68 +1227,39 @@ function buildScenario4(speak){
 
   const lbl=makeLabel('Least Squares','#88aaff','big');lbl.position.set(0,2.65,0);root.add(lbl);
 
-  s4Data={lse3,lse4,lse5,planes,planeMeshes,lsSphere,lsMat,resAttr,resArr,resGeo};
+  s4Data={lse3,lse4,lse5,planes,planeMeshes,lsSphere,lsMat,resAttr,resArr,resGeo,
+    planeCount:3,animFrom:null,animTo:null,animProgress:1};
   initTrails();updateScenario4();updatePanel();updateHUD();updateWristHUD();
 }
 
 function updateScenario4(){
   if(!s4Data)return[];
   const{lse3,lse4,lse5,planes,planeMeshes,lsSphere,lsMat,resAttr,resArr,resGeo}=s4Data;
-  const t=tParam;
+  const cnt=s4Data.planeCount;
 
-  // Smooth-step helper
+  // Interpolate sphere position using smooth-step during animation
   const ss=x=>x*x*(3-2*x);
-
-  // Determine interpolated LS position and active plane count
-  let lsPos,activeCnt,fadeAlpha;
-  if(t<=1){
-    lsPos=lse3.xLS.slice();
-    activeCnt=3; fadeAlpha=1;
-  } else if(t<=2){
-    const a=ss(t-1);
-    lsPos=lse3.xLS.map((v,i)=>v+(lse4.xLS[i]-v)*a);
-    activeCnt=4; fadeAlpha=t-1;
-  } else {
-    const a=ss(t-2);
-    lsPos=lse4.xLS.map((v,i)=>v+(lse5.xLS[i]-v)*a);
-    activeCnt=5; fadeAlpha=t-2;
-  }
-
-  // Update sphere position
+  const ap=ss(Math.min(1,s4Data.animProgress));
+  const lsPos=s4Data.animFrom&&ap<1
+    ? s4Data.animFrom.map((v,i)=>v+(s4Data.animTo[i]-v)*ap)
+    : [lse3,lse4,lse5][cnt-3].xLS.slice();
   lsSphere.position.set(...lsPos);
 
-  // Bloom pulse: emissiveIntensity spikes during movement, scale breathes
-  let emissive=1.5,sc=1;
-  if(t>1&&t<=2){
-    const p=t-1;
-    emissive=1.5+4.0*Math.sin(Math.PI*p);
-    sc=1+0.30*Math.sin(Math.PI*p);
-  } else if(t>2&&t<=3){
-    const p=t-2;
-    emissive=1.5+4.0*Math.sin(Math.PI*p);
-    sc=1+0.30*Math.sin(Math.PI*p);
-  }
-  lsMat.emissiveIntensity=emissive;
-  lsSphere.scale.setScalar(sc);
+  // Bloom pulse during animation
+  const pulse=s4Data.animProgress<1?Math.sin(Math.PI*ap):0;
+  lsMat.emissiveIntensity=1.5+4.0*pulse;
+  lsSphere.scale.setScalar(1+0.25*pulse);
 
-  // Plane visibility — first 3 always on; 4th and 5th fade in
+  // Plane visibility — full opacity immediately, no fading
   for(let i=0;i<3;i++){planeMeshes[i].pm.visible=true;planeMeshes[i].el.visible=true;}
-  if(activeCnt>=4){
-    const op=Math.min(1,fadeAlpha);
-    planeMeshes[3].pm.visible=true;planeMeshes[3].el.visible=true;
-    planeMeshes[3].pm.material.opacity=0.20*op;
-    planeMeshes[3].el.material.opacity=0.75*op;
-  } else {planeMeshes[3].pm.visible=false;planeMeshes[3].el.visible=false;}
-  if(activeCnt>=5){
-    const op=Math.min(1,fadeAlpha);
-    planeMeshes[4].pm.visible=true;planeMeshes[4].el.visible=true;
-    planeMeshes[4].pm.material.opacity=0.20*op;
-    planeMeshes[4].el.material.opacity=0.75*op;
-  } else {planeMeshes[4].pm.visible=false;planeMeshes[4].el.visible=false;}
+  planeMeshes[3].pm.visible=cnt>=4;planeMeshes[3].el.visible=cnt>=4;
+  if(cnt>=4){planeMeshes[3].pm.material.opacity=0.20;planeMeshes[3].el.material.opacity=0.75;}
+  planeMeshes[4].pm.visible=cnt>=5;planeMeshes[4].el.visible=cnt>=5;
+  if(cnt>=5){planeMeshes[4].pm.material.opacity=0.20;planeMeshes[4].el.material.opacity=0.75;}
 
-  // Update residual lines from current sphere position to each active plane
+  // Residual lines from sphere to each active plane
   let vi=0;
-  for(let i=0;i<activeCnt;i++){
+  for(let i=0;i<cnt;i++){
     const[a,bv,c,d]=planes[i],nm=Math.sqrt(a*a+bv*bv+c*c);
     const n=[a/nm,bv/nm,c/nm],bi=-d/nm;
     const dist=n[0]*lsPos[0]+n[1]*lsPos[1]+n[2]*lsPos[2]-bi;
@@ -1303,8 +1269,7 @@ function updateScenario4(){
   }
   resAttr.array.set(resArr);
   resAttr.needsUpdate=true;
-  resGeo.setDrawRange(0,activeCnt*2);
-
+  resGeo.setDrawRange(0,cnt*2);
   return[];
 }
 
@@ -1435,6 +1400,9 @@ function speakText(text){
 // ─── B button state (right controller) ────────────────────────────────────────
 let prevBPressed=false;
 
+// ─── Mode 4 trigger edge-detection ────────────────────────────────────────────
+let s4PrevRightTrig=false,s4PrevLeftTrig=false;
+
 // ─── Keyboard ─────────────────────────────────────────────────────────────────
 
 const keys={};
@@ -1448,6 +1416,19 @@ window.addEventListener('keydown',e=>{
   if(e.key==='-'){rootScale=Math.max(0.1,rootScale-0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key.toLowerCase()==='m')toggleMusic();
   if(e.key.toLowerCase()==='s'){scenarioMode=(scenarioMode+1)%5;tParam=0;rebuildScene(true);}
+  // Mode 4 discrete plane add/remove via arrow keys
+  if(e.key==='ArrowRight'&&scenarioMode===4&&s4Data&&s4Data.planeCount<5){
+    s4Data.animFrom=s4Data.lsSphere.position.toArray();
+    s4Data.planeCount++;
+    s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
+    s4Data.animProgress=0;
+  }
+  if(e.key==='ArrowLeft'&&scenarioMode===4&&s4Data&&s4Data.planeCount>3){
+    s4Data.animFrom=s4Data.lsSphere.position.toArray();
+    s4Data.planeCount--;
+    s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
+    s4Data.animProgress=0;
+  }
 });
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 window.addEventListener('resize',()=>{
@@ -1470,9 +1451,9 @@ renderer.setAnimationLoop(()=>{
   const dt=Math.min(clock.getDelta(),0.05);
   let moved=false;
 
-  // Desktop t scrub
-  if(keys['ArrowRight']){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
-  if(keys['ArrowLeft']) {tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
+  // Desktop t scrub (skipped in mode 4 — arrow keys handled via keydown instead)
+  if(keys['ArrowRight']&&scenarioMode!==4){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
+  if(keys['ArrowLeft'] &&scenarioMode!==4){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
 
   // VR input
   if(renderer.xr.isPresenting){
@@ -1488,7 +1469,17 @@ renderer.setAnimationLoop(()=>{
         const thumbBtn=src.gamepad.buttons[3]?.pressed??false;
 
         if(src.handedness==='right'){
-          if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
+          if(scenarioMode===4){
+            if(trigger&&!s4PrevRightTrig&&s4Data&&s4Data.planeCount<5){
+              s4Data.animFrom=s4Data.lsSphere.position.toArray();
+              s4Data.planeCount++;
+              s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
+              s4Data.animProgress=0;triggerHaptics(0.5,120);moved=true;
+            }
+            s4PrevRightTrig=trigger;
+          } else {
+            if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
+          }
           if(grip&&!prevGripPressed){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
           prevGripPressed=grip;
           // Right thumbstick Y → zoom
@@ -1530,7 +1521,17 @@ renderer.setAnimationLoop(()=>{
         }
         if(src.handedness==='left'){
           leftCtrl=ctrlGrp;
-          if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
+          if(scenarioMode===4){
+            if(trigger&&!s4PrevLeftTrig&&s4Data&&s4Data.planeCount>3){
+              s4Data.animFrom=s4Data.lsSphere.position.toArray();
+              s4Data.planeCount--;
+              s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
+              s4Data.animProgress=0;triggerHaptics(0.5,120);moved=true;
+            }
+            s4PrevLeftTrig=trigger;
+          } else {
+            if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
+          }
           if(thumbBtn&&!prevThumbPressed&&teleportTarget)doTeleport(teleportTarget);
           prevThumbPressed=thumbBtn;
           // Left thumbstick X → cycle scenario (right = next, left = previous)
@@ -1564,6 +1565,13 @@ renderer.setAnimationLoop(()=>{
       reticle.visible=true;teleportTarget=hits[0].point.clone();
     } else {reticle.visible=false;teleportTarget=null;}
   } else {reticle.visible=false;}
+
+  // Mode 4: continuously advance sphere animation independent of triggers
+  if(scenarioMode===4&&s4Data&&s4Data.animProgress<1){
+    s4Data.animProgress=Math.min(1,s4Data.animProgress+dt*2.5);
+    updateScenario4();
+    updatePanel();updateHUD();updateWristHUD();
+  }
 
   // Throw physics — apply velocity with exponential damping
   if(!grabActive&&throwVel.lengthSq()>0.005){
