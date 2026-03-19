@@ -789,6 +789,53 @@ function updateWristHUD(){
 let planeEditMode=false,planeEditRow=0,planeEditCol=0;
 let editPrevStickX=false,editPrevStickY=false,editPrevLGrip=false;
 
+// ─── Plane grab mode (VR, mode 4) ─────────────────────────────────────────────
+let vrGrabMode=false,prevXBtn=false;
+let grabbedPlaneIdx=-1,hoverPlaneIdx=-1;
+const planeGrabPrevPos=new THREE.Vector3(),planeGrabPrevQuat=new THREE.Quaternion();
+let prevPlaneGrip=false,vrHandAnimT=0;
+
+function buildVRHand(){
+  const grp=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0xffccaa,roughness:0.85,metalness:0.0});
+  function box(w,h,d){return new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);}
+  // Palm — flat box, fingers extend in -Z from its front edge
+  const palm=box(0.085,0.016,0.090);palm.position.set(0,-0.010,0.120);grp.add(palm);
+  // Finger definitions: [x_offset, [proximal,middle,distal] lengths in metres]
+  const fDefs=[
+    [-0.030,[0.038,0.030,0.022]], // index
+    [-0.010,[0.043,0.033,0.024]], // middle
+    [ 0.010,[0.040,0.031,0.022]], // ring
+    [ 0.030,[0.032,0.025,0.018]], // pinky
+  ];
+  const fingerChains=[];
+  for(const[fx,[l0,l1,l2]] of fDefs){
+    const j0=new THREE.Group();j0.position.set(fx,-0.002,0.075);grp.add(j0);
+    const s0=box(0.018,0.016,l0);s0.position.z=-l0/2;j0.add(s0);
+    const j1=new THREE.Group();j1.position.z=-l0;j0.add(j1);
+    const s1=box(0.016,0.015,l1);s1.position.z=-l1/2;j1.add(s1);
+    const j2=new THREE.Group();j2.position.z=-l1;j1.add(j2);
+    const s2=box(0.015,0.014,l2);s2.position.z=-l2/2;j2.add(s2);
+    fingerChains.push([j0,j1,j2]);
+  }
+  // Thumb — 2 segments angled outward from palm side
+  const tj0=new THREE.Group();tj0.position.set(-0.050,-0.005,0.108);
+  tj0.rotation.z=0.42;tj0.rotation.y=-0.28;grp.add(tj0);
+  const ts0=box(0.020,0.018,0.035);ts0.position.z=-0.0175;tj0.add(ts0);
+  const tj1=new THREE.Group();tj1.position.z=-0.035;tj0.add(tj1);
+  const ts1=box(0.018,0.016,0.028);ts1.position.z=-0.014;tj1.add(ts1);
+  const thumbChain=[tj0,tj1];
+  return{grp,fingerChains,thumbChain};
+}
+
+function updateVRHandCurl(fingerChains,thumbChain,t){
+  const c=[1.22,1.48,1.22]; // knuckle, middle, tip angles
+  for(const chain of fingerChains)for(let j=0;j<3;j++)chain[j].rotation.x=t*c[j];
+  thumbChain[0].rotation.x=t*0.75;thumbChain[1].rotation.x=t*0.55;
+}
+
+const vrHand=buildVRHand();scene.add(vrHand.grp);vrHand.grp.visible=false;
+
 function drawEditPanel(){
   const ctx=panelCtx,W=PANEL_W,H=PANEL_H,IND=30;
   ctx.clearRect(0,0,W,H);
@@ -860,8 +907,9 @@ function updateHUD(){
     :`t = <b>${s4t.toFixed(2)}</b> &nbsp; <b>${stageName(tParam)}</b><br>`;
   const ctrlHint=scenarioMode!==4
     ?`← →=scrub &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; G=matrix`
+    :vrGrabMode?`R-grip: grab plane &nbsp;|&nbsp; move/rotate &nbsp;|&nbsp; release X: apply`
     :planeEditMode?`L-stick ↑↓: ±0.5 &nbsp;|&nbsp; L-stick ←→: column &nbsp;|&nbsp; L-grip: plane &nbsp;|&nbsp; B: exit editor`
-    :`← →=add/remove plane &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; B=plane editor`;
+    :`← →=add/remove plane &nbsp;|&nbsp; B=plane editor &nbsp;|&nbsp; X=grab planes`;
   hud.innerHTML=`${modeName}<br>${tLine}Zoom: <b>${rootScale.toFixed(2)}x</b><br>`+
     `<span style="color:#aaa;font-size:12px">${ctrlHint}</span>`;
   if(s4InputPanel)s4InputPanel.style.display=(scenarioMode===4&&!renderer.xr.isPresenting)?'block':'none';
@@ -1539,7 +1587,7 @@ let grabActive=false,prevAPressed=false;
 const _cPos=new THREE.Vector3(),_cQuat=new THREE.Quaternion();
 const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_invQ=new THREE.Quaternion(),_rp=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
-renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;});
+renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;vrGrabMode=false;grabbedPlaneIdx=-1;});
 
 function triggerHaptics(intensity=0.65,duration=180){
   if(!currentXRSession)return;
@@ -1655,18 +1703,78 @@ renderer.setAnimationLoop(()=>{
         const thumbBtn=src.gamepad.buttons[3]?.pressed??false;
 
         if(src.handedness==='right'){
-          if(scenarioMode===4){
-            if(trigger&&!s4PrevRightTrig&&s4Data&&s4Data.planeCount<5){
-              s4Data.animFrom=s4Data.lsSphere.position.toArray();
-              s4Data.planeCount++;
-              s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
-              s4Data.animProgress=0;triggerHaptics(0.5,120);moved=true;
+          if(vrGrabMode&&scenarioMode===4&&s4Data){
+            // ── Plane grab mode ────────────────────────────────────────────────
+            // Hover: find nearest visible plane within reach threshold (root-local)
+            ctrlByHand['right'].getWorldPosition(_cPos);
+            const ctrlRL=root.worldToLocal(_cPos.clone());
+            hoverPlaneIdx=-1;let minD=0.9;
+            for(let pi=0;pi<5;pi++){
+              if(!s4Data.planeMeshes[pi].pm.visible)continue;
+              const d=ctrlRL.distanceTo(s4Data.planeMeshes[pi].pm.position);
+              if(d<minD){minD=d;hoverPlaneIdx=pi;}
             }
-            s4PrevRightTrig=trigger;
+            // Visual highlight
+            for(let pi=0;pi<5;pi++){
+              if(!s4Data.planeMeshes[pi].pm.visible)continue;
+              const hot=pi===hoverPlaneIdx||pi===grabbedPlaneIdx;
+              s4Data.planeMeshes[pi].pm.material.opacity=hot?0.55:0.22;
+              s4Data.planeMeshes[pi].el.material.opacity=hot?1.0:0.55;
+            }
+            // Grip → grab / release
+            if(grip&&!prevPlaneGrip&&hoverPlaneIdx>=0&&grabbedPlaneIdx<0){
+              grabbedPlaneIdx=hoverPlaneIdx;
+              planeGrabPrevPos.copy(_cPos);
+              planeGrabPrevQuat.setFromRotationMatrix(ctrlByHand['right'].matrixWorld);
+              triggerHaptics(0.6,120);
+            } else if(!grip&&grabbedPlaneIdx>=0){
+              grabbedPlaneIdx=-1;
+            }
+            // Drag grabbed plane (translate + rotate)
+            if(grip&&grabbedPlaneIdx>=0){
+              _cQuat.setFromRotationMatrix(ctrlByHand['right'].matrixWorld);
+              const prevRL=root.worldToLocal(planeGrabPrevPos.clone());
+              const currRL=root.worldToLocal(_cPos.clone());
+              _dPos.copy(currRL).sub(prevRL);
+              const pm=s4Data.planeMeshes[grabbedPlaneIdx].pm;
+              const el=s4Data.planeMeshes[grabbedPlaneIdx].el;
+              pm.position.add(_dPos);
+              // Delta rotation: world→root-local
+              _invQ.copy(planeGrabPrevQuat).invert();
+              _dQuat.copy(_cQuat).multiply(_invQ); // world dQ = curr*prev^-1
+              // dQLocal = rootQ^-1 * dQWorld * rootQ
+              const dQL=root.quaternion.clone().invert();
+              dQL.multiply(_dQuat).multiply(root.quaternion);
+              // Rotate plane around grab point
+              _rp.copy(pm.position).sub(currRL);
+              _rp.applyQuaternion(dQL);
+              pm.position.copy(currRL).add(_rp);
+              pm.quaternion.premultiply(dQL);
+              el.position.copy(pm.position);el.quaternion.copy(pm.quaternion);
+              planeGrabPrevPos.copy(_cPos);planeGrabPrevQuat.copy(_cQuat);
+              moved=true;
+            }
+            // Hand open/close animation
+            const tgt=grabbedPlaneIdx>=0?1.0:hoverPlaneIdx>=0?0.45:0.0;
+            vrHandAnimT=THREE.MathUtils.lerp(vrHandAnimT,tgt,Math.min(1,dt*9));
+            updateVRHandCurl(vrHand.fingerChains,vrHand.thumbChain,vrHandAnimT);
+            prevPlaneGrip=grip;
           } else {
-            if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
+            // ── Normal right-controller inputs ─────────────────────────────────
+            prevPlaneGrip=false;
+            if(scenarioMode===4){
+              if(trigger&&!s4PrevRightTrig&&s4Data&&s4Data.planeCount<5){
+                s4Data.animFrom=s4Data.lsSphere.position.toArray();
+                s4Data.planeCount++;
+                s4Data.animTo=[s4Data.lse3,s4Data.lse4,s4Data.lse5][s4Data.planeCount-3].xLS.slice();
+                s4Data.animProgress=0;triggerHaptics(0.5,120);moved=true;
+              }
+              s4PrevRightTrig=trigger;
+            } else {
+              if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
+            }
           }
-          if(grip&&!prevGripPressed){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
+          if(grip&&!prevGripPressed&&!vrGrabMode){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
           prevGripPressed=grip;
           // Right thumbstick Y → zoom
           const stickY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
@@ -1768,6 +1876,33 @@ renderer.setAnimationLoop(()=>{
               prevLeftStickTriggered=false;
             }
           }
+          // X button (buttons[4]) → enter / exit plane grab mode (mode 4 only)
+          const xBtn=src.gamepad.buttons[4]?.pressed??false;
+          if(scenarioMode===4&&!planeEditMode){
+            if(xBtn&&!prevXBtn){
+              vrGrabMode=true;grabbedPlaneIdx=-1;hoverPlaneIdx=-1;
+              triggerHaptics(0.4,100);updateHUD();
+            } else if(!xBtn&&prevXBtn&&vrGrabMode){
+              vrGrabMode=false;grabbedPlaneIdx=-1;hoverPlaneIdx=-1;
+              // Restore plane visuals
+              if(s4Data)for(let pi=0;pi<5;pi++){
+                s4Data.planeMeshes[pi].pm.material.opacity=0.22;
+                s4Data.planeMeshes[pi].el.material.opacity=0.80;
+              }
+              // Derive new plane equations from mesh transforms and rebuild
+              if(s4Data){
+                const _n=new THREE.Vector3();
+                for(let i=0;i<5;i++){
+                  const pm=s4Data.planeMeshes[i].pm;
+                  _n.set(0,0,1).applyQuaternion(pm.quaternion);
+                  s4PlanesCustom[i]=[_n.x,_n.y,_n.z,-_n.dot(pm.position)];
+                }
+                rebuildScene(false);
+              }
+              triggerHaptics(0.6,200);updateHUD();
+            }
+          } else if(scenarioMode!==4) vrGrabMode=false;
+          prevXBtn=xBtn;
           // Attach wrist HUD to left controller once
           if(!wristHUDAttached){ctrlGrp.add(wristMesh);wristHUDAttached=true;}
         }
@@ -1785,6 +1920,19 @@ renderer.setAnimationLoop(()=>{
       reticle.visible=true;teleportTarget=hits[0].point.clone();
     } else {reticle.visible=false;teleportTarget=null;}
   } else {reticle.visible=false;}
+
+  // VR hand visibility — show/hide and sync transform with right controller
+  const _rightCtrl=ctrlByHand['right'];
+  const _shouldShowHand=vrGrabMode&&scenarioMode===4&&renderer.xr.isPresenting&&!!_rightCtrl;
+  if(_shouldShowHand!==vrHand.grp.visible){
+    vrHand.grp.visible=_shouldShowHand;
+    if(_rightCtrl)_rightCtrl.children.forEach(c=>c.visible=!_shouldShowHand);
+  }
+  if(_shouldShowHand&&_rightCtrl){
+    _rightCtrl.getWorldPosition(vrHand.grp.position);
+    _cQuat.setFromRotationMatrix(_rightCtrl.matrixWorld);
+    vrHand.grp.quaternion.copy(_cQuat);
+  }
 
   // Mode 4: continuously advance sphere animation independent of triggers
   if(scenarioMode===4&&s4Data&&s4Data.animProgress<1){
