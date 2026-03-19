@@ -471,8 +471,12 @@ function updatePanel(){
 
   if(scenarioMode>0){
     ctx.fillStyle='#7799ff';ctx.font='bold 38px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=42;
-    ctx.fillStyle='#ffdd55';ctx.font='bold 27px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
-    ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
+    if(scenarioMode!==4){
+      ctx.fillStyle='#ffdd55';ctx.font='bold 27px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
+      ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
+    } else {
+      ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND,y);y+=36;
+    }
     y=divider(ctx,y,W,IND);
     // ── Mode 1: 2×3 matrix + legend ─────────────────────────────────────────
     if(scenarioMode===1&&s1Data){
@@ -691,9 +695,13 @@ function updateWristHUD(){
   // ── Title ────────────────────────────────────────────────────────────────────
   const title=scenarioMode===0?'3×3 SVD Transform':SCENARIO_NAMES[scenarioMode];
   ctx.fillStyle='#7799ff';ctx.font='bold 26px monospace';ctx.fillText(title,P,y+22);y+=28;
-  // t value + stage name
-  ctx.fillStyle='#ffdd55';ctx.font='bold 21px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,P,y+18);
-  ctx.fillStyle='#aaaacc';ctx.font='15px monospace';ctx.fillText(stageName(tParam),P+108,y+18);y+=24;
+  // t value + stage name (t hidden for mode 4)
+  if(scenarioMode!==4){
+    ctx.fillStyle='#ffdd55';ctx.font='bold 21px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,P,y+18);
+    ctx.fillStyle='#aaaacc';ctx.font='15px monospace';ctx.fillText(stageName(tParam),P+108,y+18);y+=24;
+  } else {
+    ctx.fillStyle='#aaaacc';ctx.font='17px monospace';ctx.fillText(stageName(tParam),P,y+18);y+=24;
+  }
   wDiv();
   // ── Main info (per scenario) ──────────────────────────────────────────────────
   ctx.font='19px monospace';
@@ -757,7 +765,8 @@ function updateWristHUD(){
   wDiv();
   // ── Quick-reference tip ───────────────────────────────────────────────────────
   ctx.fillStyle='#445566';ctx.font='13px monospace';
-  ctx.fillText('R-trig: fwd   L-trig: rev   L-stick\u2194: mode',P,y+12);
+  ctx.fillText(scenarioMode===4?'R-trig: +plane   L-trig: \u2212plane   L-stick\u2194: mode'
+    :'R-trig: fwd   L-trig: rev   L-stick\u2194: mode',P,y+12);
   wristTex.needsUpdate=true;
 }
 
@@ -772,10 +781,15 @@ document.body.appendChild(hud);
 function updateHUD(){
   const modeName=scenarioMode===0?`Matrix: <b>${PRESETS[presetIdx].name}</b> [1/2/3|G]`
     :`Scenario: <b>${SCENARIO_NAMES[scenarioMode]}</b> [S to cycle]`;
-  hud.innerHTML=`${modeName}<br>`+
-    `t = <b>${tParam.toFixed(2)}</b> / 3.00 &nbsp; <b>${stageName(tParam)}</b><br>`+
-    `Zoom: <b>${rootScale.toFixed(2)}x</b><br>`+
-    `<span style="color:#aaa;font-size:12px">← →=scrub &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; G=matrix &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}</span>`;
+  const tLine=scenarioMode!==4
+    ?`t = <b>${tParam.toFixed(2)}</b> / 3.00 &nbsp; <b>${stageName(tParam)}</b><br>`
+    :`<b>${stageName(tParam)}</b><br>`;
+  const ctrlHint=scenarioMode!==4
+    ?`← →=scrub &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; G=matrix &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}`
+    :`← →=add/remove plane &nbsp;|&nbsp; S=scenario &nbsp;|&nbsp; M=music ${musicMuted?'(muted)':'(on)'}`;
+  hud.innerHTML=`${modeName}<br>${tLine}Zoom: <b>${rootScale.toFixed(2)}x</b><br>`+
+    `<span style="color:#aaa;font-size:12px">${ctrlHint}</span>`;
+  if(s4InputPanel)s4InputPanel.style.display=(scenarioMode===4&&!renderer.xr.isPresenting)?'block':'none';
 }
 
 // ─── Root group ───────────────────────────────────────────────────────────────
@@ -1175,69 +1189,116 @@ function updateScenario3(){
 
 const S4_PLANES=[[1,1,1,-3],[1,-1,0,0],[0,1,-1,1],[1,0,-2,2],[2,1,0,-4]];
 const S4_PCOLORS=[0xff4444,0x44ff44,0x4488ff,0xffaa22,0xff44ff];
+const S4_CSS_COLORS=['#ff4444','#44ff44','#4488ff','#ffaa22','#ff44ff'];
+let s4PlanesCustom=S4_PLANES.map(p=>[...p]);
+
+// ─── Mode 4 equation input panel (desktop) ────────────────────────────────────
+let s4InputPanel=null;
+function buildS4InputPanel(){
+  s4InputPanel=document.createElement('div');
+  s4InputPanel.style.cssText='position:absolute;bottom:12px;right:12px;background:rgba(8,10,28,0.94);'
+    +'border:1px solid rgba(80,120,255,0.45);border-radius:10px;padding:14px 16px;'
+    +'color:#ccd6f6;font-family:monospace;font-size:13px;display:none;z-index:10;';
+  const ttl=document.createElement('div');
+  ttl.style.cssText='color:#7799ff;font-weight:bold;margin-bottom:8px;font-size:14px;';
+  ttl.textContent='Plane Equations  (Ax + By + Cz + D = 0)';
+  s4InputPanel.appendChild(ttl);
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:grid;grid-template-columns:36px repeat(4,58px);gap:4px;margin-bottom:4px;color:#5577aa;text-align:center;';
+  hdr.innerHTML='<span></span><span>A</span><span>B</span><span>C</span><span>D</span>';
+  s4InputPanel.appendChild(hdr);
+  for(let i=0;i<5;i++){
+    const row=document.createElement('div');
+    row.style.cssText='display:grid;grid-template-columns:36px repeat(4,58px);gap:4px;margin-bottom:4px;align-items:center;';
+    const lbl=document.createElement('span');
+    lbl.style.cssText=`color:${S4_CSS_COLORS[i]};font-weight:bold;`;
+    lbl.textContent=`P${i+1}`;
+    row.appendChild(lbl);
+    for(let j=0;j<4;j++){
+      const inp=document.createElement('input');
+      inp.type='number';inp.step='0.5';inp.value=s4PlanesCustom[i][j];
+      inp.style.cssText='width:100%;background:rgba(20,30,60,0.8);border:1px solid rgba(80,120,255,0.3);'
+        +'border-radius:4px;color:#ccd6f6;font-family:monospace;font-size:13px;'
+        +'padding:3px 5px;box-sizing:border-box;text-align:center;';
+      const ii=i,jj=j;
+      inp.addEventListener('change',()=>{
+        const v=parseFloat(inp.value);
+        if(!isNaN(v)){s4PlanesCustom[ii][jj]=v;if(scenarioMode===4)buildScenario4(false);}
+      });
+      row.appendChild(inp);
+    }
+    s4InputPanel.appendChild(row);
+  }
+  document.body.appendChild(s4InputPanel);
+}
 
 function buildScenario4(speak){
+  const prevCount=s4Data?s4Data.planeCount:3;
   sceneCommon(speak,SCENARIO_NAMES[4]);
-  const planes=S4_PLANES;
+  const planes=s4PlanesCustom;
   const lse3=lseSolve(planes.slice(0,3));
   const lse4=lseSolve(planes.slice(0,4));
   const lse5=lseSolve(planes.slice(0,5));
 
-  // Build all 5 plane quads + wireframe borders; planes 4-5 (index 3-4) start hidden
+  // Center each plane at foot of perpendicular from the 5-plane LS solution
+  // so the residual endpoint always falls near the plane center
   const planeMeshes=[];
-  const h=1.75;
+  const PSIZE=7,h=3.5; // larger planes so the dot is clearly visible on them
   for(let i=0;i<5;i++){
     const[a,bv,c,d]=planes[i],nm=Math.sqrt(a*a+bv*bv+c*c);
-    const pm=makeSemiPlane([a/nm,bv/nm,c/nm],S4_PCOLORS[i],0.20,3.5);
-    pm.position.set(-d*a/(nm*nm),-d*bv/(nm*nm),-d*c/(nm*nm));
-    pm.material.transparent=true;
+    const n=[a/nm,bv/nm,c/nm],bi=-d/nm;
+    // foot of perpendicular from lse5 solution onto this plane
+    const x5=lse5.xLS;
+    const dist5=n[0]*x5[0]+n[1]*x5[1]+n[2]*x5[2]-bi;
+    const foot=[x5[0]-dist5*n[0],x5[1]-dist5*n[1],x5[2]-dist5*n[2]];
+    const pm=makeSemiPlane([n[0],n[1],n[2]],S4_PCOLORS[i],0.22,PSIZE);
+    pm.position.set(...foot);pm.material.transparent=true;
     root.add(pm);
     const eq=new THREE.BufferGeometry().setFromPoints(
       [[-h,-h,0],[h,-h,0],[h,h,0],[-h,h,0],[-h,-h,0]].map(v=>new THREE.Vector3(...v)));
-    const el=new THREE.Line(eq,new THREE.LineBasicMaterial({color:S4_PCOLORS[i],transparent:true,opacity:0.75}));
+    const el=new THREE.Line(eq,new THREE.LineBasicMaterial({color:S4_PCOLORS[i],transparent:true,opacity:0.80}));
     el.position.copy(pm.position);el.quaternion.copy(pm.quaternion);root.add(el);
     if(i>=3){pm.visible=false;el.visible=false;}
     planeMeshes.push({pm,el});
   }
 
-  // Residual line geometry — capacity for 5 segments (10 verts)
-  const resArr=new Float32Array(5*2*3);
-  const resAttr=new THREE.Float32BufferAttribute(resArr,3);
-  resAttr.usage=THREE.DynamicDrawUsage;
-  const resGeo=new THREE.BufferGeometry();
-  resGeo.setAttribute('position',resAttr);
-  resGeo.setDrawRange(0,6); // start with 3 planes = 6 verts
-  root.add(new THREE.LineSegments(resGeo,
-    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.80})));
+  // Per-plane colored residual lines (one Line per plane)
+  const resLines=[];
+  for(let i=0;i<5;i++){
+    const arr=new Float32Array(6);
+    const attr=new THREE.Float32BufferAttribute(arr,3);
+    attr.usage=THREE.DynamicDrawUsage;
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',attr);
+    const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:S4_PCOLORS[i],transparent:true,opacity:0.95,linewidth:2}));
+    line.visible=false;root.add(line);
+    resLines.push({line,attr,arr});
+  }
 
-  // LS sphere — high emissive for bloom
-  const lsMat=new THREE.MeshStandardMaterial({
-    color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5,
-  });
-  const lsSphere=new THREE.Mesh(new THREE.SphereGeometry(0.06,16,12),lsMat);
-  lsSphere.position.set(...lse3.xLS);
-  root.add(lsSphere);
+  // LS sphere — smaller, high emissive for bloom
+  const lsMat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5});
+  const lsSphere=new THREE.Mesh(new THREE.SphereGeometry(0.04,16,12),lsMat);
+  lsSphere.position.set(...lse3.xLS);root.add(lsSphere);
 
-  // Bounding cube sized around the full 5-plane solution region
+  // Bounding cube
   const allXLS=[lse3.xLS,lse4.xLS,lse5.xLS];
-  const pad=2.2;
-  const mn=[Math.min(...allXLS.map(p=>p[0]))-pad, Math.min(...allXLS.map(p=>p[1]))-pad, Math.min(...allXLS.map(p=>p[2]))-pad];
-  const mx=[Math.max(...allXLS.map(p=>p[0]))+pad, Math.max(...allXLS.map(p=>p[1]))+pad, Math.max(...allXLS.map(p=>p[2]))+pad];
+  const pad=2.5;
+  const mn=[Math.min(...allXLS.map(p=>p[0]))-pad,Math.min(...allXLS.map(p=>p[1]))-pad,Math.min(...allXLS.map(p=>p[2]))-pad];
+  const mx=[Math.max(...allXLS.map(p=>p[0]))+pad,Math.max(...allXLS.map(p=>p[1]))+pad,Math.max(...allXLS.map(p=>p[2]))+pad];
   root.add(makeSegs(cubePosArray(buildCubeCorners([mn,mx])),matCO));
 
   const lbl=makeLabel('Least Squares','#88aaff','big');lbl.position.set(0,2.65,0);root.add(lbl);
 
-  s4Data={lse3,lse4,lse5,planes,planeMeshes,lsSphere,lsMat,resAttr,resArr,resGeo,
-    planeCount:3,animFrom:null,animTo:null,animProgress:1};
+  s4Data={lse3,lse4,lse5,planes,planeMeshes,resLines,lsSphere,lsMat,
+    planeCount:prevCount,animFrom:null,animTo:null,animProgress:1};
   initTrails();updateScenario4();updatePanel();updateHUD();updateWristHUD();
 }
 
 function updateScenario4(){
   if(!s4Data)return[];
-  const{lse3,lse4,lse5,planes,planeMeshes,lsSphere,lsMat,resAttr,resArr,resGeo}=s4Data;
+  const{lse3,lse4,lse5,planes,planeMeshes,resLines,lsSphere,lsMat}=s4Data;
   const cnt=s4Data.planeCount;
 
-  // Interpolate sphere position using smooth-step during animation
+  // Sphere position: smooth-step interpolation during animation
   const ss=x=>x*x*(3-2*x);
   const ap=ss(Math.min(1,s4Data.animProgress));
   const lsPos=s4Data.animFrom&&ap<1
@@ -1250,26 +1311,28 @@ function updateScenario4(){
   lsMat.emissiveIntensity=1.5+4.0*pulse;
   lsSphere.scale.setScalar(1+0.25*pulse);
 
-  // Plane visibility — full opacity immediately, no fading
+  // Plane visibility — full opacity immediately
   for(let i=0;i<3;i++){planeMeshes[i].pm.visible=true;planeMeshes[i].el.visible=true;}
   planeMeshes[3].pm.visible=cnt>=4;planeMeshes[3].el.visible=cnt>=4;
-  if(cnt>=4){planeMeshes[3].pm.material.opacity=0.20;planeMeshes[3].el.material.opacity=0.75;}
+  if(cnt>=4){planeMeshes[3].pm.material.opacity=0.22;planeMeshes[3].el.material.opacity=0.80;}
   planeMeshes[4].pm.visible=cnt>=5;planeMeshes[4].el.visible=cnt>=5;
-  if(cnt>=5){planeMeshes[4].pm.material.opacity=0.20;planeMeshes[4].el.material.opacity=0.75;}
+  if(cnt>=5){planeMeshes[4].pm.material.opacity=0.22;planeMeshes[4].el.material.opacity=0.80;}
 
-  // Residual lines from sphere to each active plane
-  let vi=0;
-  for(let i=0;i<cnt;i++){
-    const[a,bv,c,d]=planes[i],nm=Math.sqrt(a*a+bv*bv+c*c);
-    const n=[a/nm,bv/nm,c/nm],bi=-d/nm;
-    const dist=n[0]*lsPos[0]+n[1]*lsPos[1]+n[2]*lsPos[2]-bi;
-    const proj=[lsPos[0]-dist*n[0],lsPos[1]-dist*n[1],lsPos[2]-dist*n[2]];
-    resArr[vi++]=lsPos[0];resArr[vi++]=lsPos[1];resArr[vi++]=lsPos[2];
-    resArr[vi++]=proj[0]; resArr[vi++]=proj[1]; resArr[vi++]=proj[2];
+  // Per-plane colored residual lines from sphere to foot on each plane
+  for(let i=0;i<5;i++){
+    const{line,attr,arr}=resLines[i];
+    if(i<cnt){
+      const[a,bv,c,d]=planes[i],nm=Math.sqrt(a*a+bv*bv+c*c);
+      const n=[a/nm,bv/nm,c/nm],bi=-d/nm;
+      const dist=n[0]*lsPos[0]+n[1]*lsPos[1]+n[2]*lsPos[2]-bi;
+      arr[0]=lsPos[0];arr[1]=lsPos[1];arr[2]=lsPos[2];
+      arr[3]=lsPos[0]-dist*n[0];arr[4]=lsPos[1]-dist*n[1];arr[5]=lsPos[2]-dist*n[2];
+      attr.array.set(arr);attr.needsUpdate=true;
+      line.visible=true;
+    } else {
+      line.visible=false;
+    }
   }
-  resAttr.array.set(resArr);
-  resAttr.needsUpdate=true;
-  resGeo.setDrawRange(0,cnt*2);
   return[];
 }
 
@@ -1440,6 +1503,7 @@ window.addEventListener('resize',()=>{
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
+buildS4InputPanel();
 rebuildScene();updateHUD();updateWristHUD();
 
 // ─── Render loop ──────────────────────────────────────────────────────────────
