@@ -1028,6 +1028,45 @@ const SCENARIO_NAMES=['3×3 SVD','2×3 Projection (R³→R²)','3×2 Lifting (R�
 let prevLeftStickTriggered=false;
 let s1Data=null,s2Data=null,s3Data=null,s4Data=null;
 
+// ─── Mode 4 sphere trail ───────────────────────────────────────────────────────
+const S4_TRAIL_LEN=48;
+const s4TrailPosArr=new Float32Array(S4_TRAIL_LEN*3);
+const s4TrailColArr=new Float32Array(S4_TRAIL_LEN*3);
+const s4TrailPosBuf=new THREE.BufferAttribute(s4TrailPosArr,3);
+const s4TrailColBuf=new THREE.BufferAttribute(s4TrailColArr,3);
+const s4TrailGeo=new THREE.BufferGeometry();
+s4TrailGeo.setAttribute('position',s4TrailPosBuf);
+s4TrailGeo.setAttribute('color',s4TrailColBuf);
+const s4TrailMat=new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0,depthWrite:false});
+const s4TrailLine=new THREE.Line(s4TrailGeo,s4TrailMat);
+s4TrailLine.frustumCulled=false;s4TrailLine.visible=false;
+let s4TrailData=[],s4TrailFadeAge=-1;
+
+function s4AddTrailPoint(pos){
+  s4TrailData.push([pos.x,pos.y,pos.z]);
+  if(s4TrailData.length>S4_TRAIL_LEN)s4TrailData.shift();
+  const n=s4TrailData.length;
+  for(let i=0;i<n;i++){
+    const t=n>1?i/(n-1):1;
+    s4TrailPosArr[i*3]=s4TrailData[i][0];s4TrailPosArr[i*3+1]=s4TrailData[i][1];s4TrailPosArr[i*3+2]=s4TrailData[i][2];
+    s4TrailColArr[i*3]=t;s4TrailColArr[i*3+1]=t*0.55;s4TrailColArr[i*3+2]=t*0.05;
+  }
+  s4TrailPosBuf.needsUpdate=true;s4TrailColBuf.needsUpdate=true;
+  s4TrailGeo.setDrawRange(0,n);
+  s4TrailMat.opacity=1.0;s4TrailLine.visible=n>=2;s4TrailFadeAge=-1;
+}
+
+// ─── Mode 4 glow sprite ────────────────────────────────────────────────────────
+const _s4GlowCv=document.createElement('canvas');_s4GlowCv.width=_s4GlowCv.height=64;
+const _s4GlowCx=_s4GlowCv.getContext('2d');
+const _s4Gr=_s4GlowCx.createRadialGradient(32,32,0,32,32,32);
+_s4Gr.addColorStop(0,'rgba(255,230,140,1)');_s4Gr.addColorStop(0.2,'rgba(255,160,50,0.6)');
+_s4Gr.addColorStop(0.55,'rgba(255,90,10,0.18)');_s4Gr.addColorStop(1,'rgba(0,0,0,0)');
+_s4GlowCx.fillStyle=_s4Gr;_s4GlowCx.fillRect(0,0,64,64);
+const s4GlowMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(_s4GlowCv),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0.5});
+const s4GlowSprite=new THREE.Sprite(s4GlowMat);
+s4GlowSprite.scale.setScalar(0.55);s4GlowSprite.visible=false;
+
 // ─── Rebuild scene ────────────────────────────────────────────────────────────
 
 function rebuildScene(speak=false){
@@ -1396,6 +1435,9 @@ function buildScenario4(speak){
   const lsMat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5});
   const lsSphere=new THREE.Mesh(new THREE.SphereGeometry(0.04,16,12),lsMat);
   lsSphere.position.set(...lse3.xLS);root.add(lsSphere);
+  // Glow + trail
+  root.add(s4GlowSprite);s4GlowSprite.visible=true;
+  root.add(s4TrailLine);s4TrailData=[];s4TrailFadeAge=-1;s4TrailMat.opacity=0;s4TrailLine.visible=false;
 
   // Bounding cube
   const allXLS=[lse3.xLS,lse4.xLS,lse5.xLS];
@@ -1428,6 +1470,9 @@ function updateScenario4(){
   const pulse=s4Data.animProgress<1?Math.sin(Math.PI*ap):0;
   lsMat.emissiveIntensity=1.5+4.0*pulse;
   lsSphere.scale.setScalar(1+0.25*pulse);
+  // Glow sprite — follows sphere, brightens during animation
+  s4GlowSprite.position.copy(lsSphere.position);
+  s4GlowMat.opacity=0.45+0.55*pulse;
 
   // Plane visibility — full opacity immediately
   for(let i=0;i<3;i++){planeMeshes[i].pm.visible=true;planeMeshes[i].el.visible=true;}
@@ -1745,8 +1790,18 @@ renderer.setAnimationLoop(()=>{
   if(scenarioMode===4&&s4Data&&s4Data.animProgress<1){
     s4Data.animProgress=Math.min(1,s4Data.animProgress+dt*2.5);
     updateScenario4();
+    s4AddTrailPoint(s4Data.lsSphere.position);
+    if(s4Data.animProgress>=1)s4TrailFadeAge=0; // begin fade when animation finishes
     updatePanel();updateHUD();updateWristHUD();
   }
+  // Fade trail out after animation ends
+  if(s4TrailFadeAge>=0){
+    s4TrailFadeAge+=dt;
+    s4TrailMat.opacity=Math.max(0,1-s4TrailFadeAge/1.8);
+    if(s4TrailFadeAge>1.8){s4TrailLine.visible=false;s4TrailFadeAge=-1;}
+  }
+  // Hide glow when not in mode 4
+  if(scenarioMode!==4)s4GlowSprite.visible=false;
 
   // Throw physics — apply velocity with exponential damping
   if(!grabActive&&throwVel.lengthSq()>0.005){
