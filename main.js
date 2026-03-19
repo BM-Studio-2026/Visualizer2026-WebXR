@@ -835,6 +835,7 @@ function updateVRHandCurl(fingerChains,thumbChain,t){
 }
 
 const vrHand=buildVRHand();scene.add(vrHand.grp);vrHand.grp.visible=false;
+const _vrHandOffset=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,Math.PI));
 
 function drawEditPanel(){
   const ctx=panelCtx,W=PANEL_W,H=PANEL_H,IND=30;
@@ -1930,7 +1931,7 @@ renderer.setAnimationLoop(()=>{
   if(_shouldShowHand&&_rightCtrl){
     _rightCtrl.getWorldPosition(vrHand.grp.position);
     _cQuat.setFromRotationMatrix(_rightCtrl.matrixWorld);
-    vrHand.grp.quaternion.copy(_cQuat);
+    vrHand.grp.quaternion.copy(_cQuat).multiply(_vrHandOffset);
   }
 
   // Mode 4: continuously advance sphere animation independent of triggers
