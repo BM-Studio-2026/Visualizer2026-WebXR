@@ -575,7 +575,10 @@ function updatePanel(){
       ctx.fillStyle='#ffdd55';ctx.font='22px monospace';
       ctx.fillText(`x=${x[0].toFixed(3)}, y=${x[1].toFixed(3)}, z=${x[2].toFixed(3)}`,IND,y);y+=28;
       ctx.fillStyle='#cccccc';
-      ctx.fillText(`Residuals: ${lseCur.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=32;
+      ctx.fillText(`Residuals: ${lseCur.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=28;
+      const rms4=Math.sqrt(lseCur.dists.reduce((s,d)=>s+d*d,0)/lseCur.dists.length);
+      ctx.fillStyle='#ff8844';ctx.font='bold 22px monospace';
+      ctx.fillText(`RMS Error: ${rms4.toFixed(4)}`,IND,y);y+=32;
       y=divider(ctx,y,W,IND);
       ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Legend',IND,y);y+=28;
       ctx.font='20px monospace';
@@ -737,7 +740,9 @@ function updateWristHUD(){
     const xls=lseCur.xLS;
     ctx.fillStyle='#cccccc';ctx.fillText(`${cnt} planes active`,P,y+16);y+=21;
     ctx.fillStyle='#ffdd55';ctx.fillText(`x=${xls[0].toFixed(2)}  y=${xls[1].toFixed(2)}  z=${xls[2].toFixed(2)}`,P,y+16);y+=21;
-    ctx.fillStyle='#88aadd';ctx.fillText(`Res: ${lseCur.dists.map(d=>d.toFixed(2)).join('  ')}`,P,y+16);y+=22;
+    ctx.fillStyle='#88aadd';ctx.fillText(`Res: ${lseCur.dists.map(d=>d.toFixed(2)).join('  ')}`,P,y+16);y+=21;
+    const rms4w=Math.sqrt(lseCur.dists.reduce((s,d)=>s+d*d,0)/lseCur.dists.length);
+    ctx.fillStyle='#ff8844';ctx.fillText(`RMS: ${rms4w.toFixed(4)}`,P,y+16);y+=22;
   }
   wDiv();
   // ── Steps ────────────────────────────────────────────────────────────────────
