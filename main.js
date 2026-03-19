@@ -584,7 +584,7 @@ function updatePanel(){
     const c2='#88aadd';
     for(const[dot,key,desc2] of[
       ['#ffdd55','R trigger','→ advance t (0→3)'],['#ffdd55','L trigger','→ reverse t (3→0)'],
-      ['#ff8844','R grip','→ cycle 3×3 matrix'],['#44ffcc','L stick ↑↓','→ cycle scenario mode'],
+      ['#ff8844','R grip','→ cycle 3×3 matrix'],['#44ffcc','L stick ←→','→ cycle scenario mode'],
       ['#44ffaa','L stick click','→ teleport'],['#44ffaa','R stick Y','→ zoom'],
       ['#ff88ff','A button','→ grab/rotate/throw'],['#ff88ff','B button','→ music toggle'],
       ['#aaaaaa','S key','→ cycle scenario (desktop)'],
@@ -649,7 +649,7 @@ function updatePanel(){
     ['#ff88ff','A button','→ grab space: drag + rotate'],
     ['#ff88ff','A release','→ throw (momentum carry)'],
     ['#ff88ff','B button','→ toggle ambient music (VR)'],
-    ['#44ffcc','L stick ↑↓','→ next / prev scenario mode'],
+    ['#44ffcc','L stick ←→','→ right=next / left=prev scenario'],
     ['#aaaaaa','M key','→ toggle ambient music (desktop)'],
     ['#aaaaaa','S key','→ cycle scenario (desktop)'],
   ];
@@ -1355,17 +1355,18 @@ renderer.setAnimationLoop(()=>{
           if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
           if(thumbBtn&&!prevThumbPressed&&teleportTarget)doTeleport(teleportTarget);
           prevThumbPressed=thumbBtn;
-          // Left thumbstick Y → cycle scenario (up = next, down = previous)
-          const leftStickY=src.gamepad.axes[1]??0;
-          if(leftStickY<-0.5&&!prevLeftStickTriggered){
+          // Left thumbstick X → cycle scenario (right = next, left = previous)
+          // axes[2]=thumbstick X, axes[3]=thumbstick Y on Meta Quest (axes[0/1] are touchpad, always 0)
+          const leftStickX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
+          if(leftStickX>0.5&&!prevLeftStickTriggered){
             scenarioMode=(scenarioMode+1)%5;
             tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
             prevLeftStickTriggered=true;
-          } else if(leftStickY>0.5&&!prevLeftStickTriggered){
+          } else if(leftStickX<-0.5&&!prevLeftStickTriggered){
             scenarioMode=(scenarioMode+4)%5;
             tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
             prevLeftStickTriggered=true;
-          } else if(Math.abs(leftStickY)<0.3){
+          } else if(Math.abs(leftStickX)<0.3){
             prevLeftStickTriggered=false;
           }
           // Attach wrist HUD to left controller once

@@ -38,7 +38,7 @@ Cycle through scenarios with the **left grip button** (VR) or **S key** (desktop
 | Right trigger (hold) | Advance t: 0 → 3 (animate transformation) |
 | Left trigger (hold) | Reverse t: 3 → 0 |
 | Right grip | Cycle 3×3 matrix preset (mode 0) |
-| **Left thumbstick ↑↓** | **Cycle scenario mode (0–4): up = next, down = prev** |
+| **Left thumbstick ←→** | **Cycle scenario mode (0–4): right = next, left = prev** |
 | Right thumbstick Y | Zoom in / out |
 | A button | Grab, drag, rotate and throw the scene |
 | B button | Toggle ambient music |
