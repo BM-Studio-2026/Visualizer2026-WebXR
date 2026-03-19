@@ -584,7 +584,7 @@ function updatePanel(){
     const c2='#88aadd';
     for(const[dot,key,desc2] of[
       ['#ffdd55','R trigger','→ advance t (0→3)'],['#ffdd55','L trigger','→ reverse t (3→0)'],
-      ['#ff8844','R grip','→ cycle 3×3 matrix'],['#44ffcc','L grip','→ cycle scenario mode'],
+      ['#ff8844','R grip','→ cycle 3×3 matrix'],['#44ffcc','L stick ↑↓','→ cycle scenario mode'],
       ['#44ffaa','L stick click','→ teleport'],['#44ffaa','R stick Y','→ zoom'],
       ['#ff88ff','A button','→ grab/rotate/throw'],['#ff88ff','B button','→ music toggle'],
       ['#aaaaaa','S key','→ cycle scenario (desktop)'],
@@ -649,7 +649,7 @@ function updatePanel(){
     ['#ff88ff','A button','→ grab space: drag + rotate'],
     ['#ff88ff','A release','→ throw (momentum carry)'],
     ['#ff88ff','B button','→ toggle ambient music (VR)'],
-    ['#44ffcc','L grip','→ cycle scenario mode'],
+    ['#44ffcc','L stick ↑↓','→ next / prev scenario mode'],
     ['#aaaaaa','M key','→ toggle ambient music (desktop)'],
     ['#aaaaaa','S key','→ cycle scenario (desktop)'],
   ];
@@ -825,7 +825,7 @@ let svLabels=[];
 // ─── Scenario mode ────────────────────────────────────────────────────────────
 let scenarioMode=0;
 const SCENARIO_NAMES=['3×3 SVD','2×3 Projection (R³→R²)','3×2 Lifting (R²→R³)','3D PCA','Least Squares'];
-let prevLeftGripPressed=false;
+let prevLeftStickTriggered=false;
 let s1Data=null,s2Data=null,s3Data=null,s4Data=null;
 
 // ─── Rebuild scene ────────────────────────────────────────────────────────────
@@ -1355,12 +1355,19 @@ renderer.setAnimationLoop(()=>{
           if(trigger){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
           if(thumbBtn&&!prevThumbPressed&&teleportTarget)doTeleport(teleportTarget);
           prevThumbPressed=thumbBtn;
-          // Left grip → cycle scenario mode
-          if(grip&&!prevLeftGripPressed){
+          // Left thumbstick Y → cycle scenario (up = next, down = previous)
+          const leftStickY=src.gamepad.axes[1]??0;
+          if(leftStickY<-0.5&&!prevLeftStickTriggered){
             scenarioMode=(scenarioMode+1)%5;
             tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
+            prevLeftStickTriggered=true;
+          } else if(leftStickY>0.5&&!prevLeftStickTriggered){
+            scenarioMode=(scenarioMode+4)%5;
+            tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
+            prevLeftStickTriggered=true;
+          } else if(Math.abs(leftStickY)<0.3){
+            prevLeftStickTriggered=false;
           }
-          prevLeftGripPressed=grip;
           // Attach wrist HUD to left controller once
           if(!wristHUDAttached){ctrlGrp.add(wristMesh);wristHUDAttached=true;}
         }
