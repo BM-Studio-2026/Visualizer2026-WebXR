@@ -1513,10 +1513,16 @@ function buildScenario3(speak, keepPts=false){
   const oIM=makePointCloud(pts,0x00eeff,0.45);
   const tIM=makePointCloud(pts,0xff7722,1.0);
   root.add(oIM);root.add(tIM);
+  // Hover glow sphere (visible only in PCA grab mode)
+  const hoverSphere=new THREE.Mesh(
+    new THREE.SphereGeometry(0.10,12,9),
+    new THREE.MeshBasicMaterial({color:0xffff00,transparent:true,opacity:0.75,depthWrite:false})
+  );
+  hoverSphere.visible=false;root.add(hoverSphere);
   // White bounding cube (static reference)
   root.add(makeSegs(cubePosArray(buildCubeCorners(pts)),matCO));
   const lbl=makeLabel('3D PCA','#88aaff','big');lbl.position.set(0,2.5,0);root.add(lbl);
-  s3Data={pca,pts,tIM,oIM};
+  s3Data={pca,pts,tIM,oIM,hoverSphere};
   initTrails();updateScenario3();updatePanel();updateHUD();updateWristHUD();
 }
 
@@ -1736,13 +1742,15 @@ let baseRefSpace=null,teleportTarget=null,prevThumbPressed=false,currentXRSessio
 const grabCtrlPos=new THREE.Vector3(),grabCtrlQuat=new THREE.Quaternion();
 const throwVel=new THREE.Vector3();
 let grabActive=false,prevAPressed=false;
-let pcaGrabMode=false,pcaGrabIdx=-1,prevPcaGrabTrig=false;
+let pcaGrabMode=false,pcaGrabIdx=-1,pcaHoverIdx=-1,prevPcaGrabTrig=false;
+const pcaGrabPrevPos=new THREE.Vector3();
 // Pre-allocated temps (avoid per-frame allocation)
 const _cPos=new THREE.Vector3(),_cQuat=new THREE.Quaternion();
 const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_invQ=new THREE.Quaternion(),_rp=new THREE.Vector3();
 const _invRootMat=new THREE.Matrix4(),_localPos=new THREE.Vector3();
+const _rayDir=new THREE.Vector3(),_rayDP=new THREE.Vector3(),_rayPerp=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
-renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;vrGrabMode=false;grabbedPlaneIdx=-1;pcaGrabMode=false;pcaGrabIdx=-1;});
+renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;vrGrabMode=false;grabbedPlaneIdx=-1;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;});
 
 function triggerHaptics(intensity=0.65,duration=180){
   if(!currentXRSession)return;
@@ -1914,35 +1922,61 @@ renderer.setAnimationLoop(()=>{
             updateVRHandCurl(vrHand.fingerChains,vrHand.thumbChain,vrHandAnimT);
             prevPlaneGrip=grip;
           } else if(pcaGrabMode&&scenarioMode===3&&s3Data){
-            // ── PCA point grab mode ────────────────────────────────────────────
+            // ── PCA point grab mode (ray-based hover) ─────────────────────────
             prevPlaneGrip=false;
             ctrlGrp.getWorldPosition(_cPos);
+            _cQuat.setFromRotationMatrix(ctrlGrp.matrixWorld);
+            // Ray from controller forward in world space
+            tmpMatrix.identity().extractRotation(ctrlGrp.matrixWorld);
+            _rayDir.set(0,0,-1).applyMatrix4(tmpMatrix);
+            // Transform ray to root-local space
             _invRootMat.copy(root.matrixWorld).invert();
             _localPos.copy(_cPos).applyMatrix4(_invRootMat);
-            if(trigger&&!prevPcaGrabTrig&&pcaGrabIdx<0){
-              // Grab start: find nearest point within threshold
-              let best=-1,bestD=0.25*0.25;
+            _rayDir.transformDirection(_invRootMat);
+            // Hover: find point with minimum perpendicular distance to ray
+            if(pcaGrabIdx<0){
+              let best=-1,bestD=0.12; // threshold in root-local units
               for(let i=0;i<s3Data.pts.length;i++){
                 const p=s3Data.pts[i];
-                const dx=_localPos.x-p[0],dy=_localPos.y-p[1],dz=_localPos.z-p[2];
-                const d2=dx*dx+dy*dy+dz*dz;
-                if(d2<bestD){bestD=d2;best=i;}
+                _rayDP.set(p[0]-_localPos.x,p[1]-_localPos.y,p[2]-_localPos.z);
+                const t=_rayDP.dot(_rayDir);
+                if(t<0)continue; // behind controller
+                _rayPerp.copy(_rayDP).addScaledVector(_rayDir,-t);
+                const d=_rayPerp.length();
+                if(d<bestD){bestD=d;best=i;}
               }
-              if(best>=0){pcaGrabIdx=best;triggerHaptics(0.6,150);}
-            } else if(trigger&&pcaGrabIdx>=0){
-              // Drag: move grabbed point with controller
-              s3Data.pts[pcaGrabIdx][0]=_localPos.x;
-              s3Data.pts[pcaGrabIdx][1]=_localPos.y;
-              s3Data.pts[pcaGrabIdx][2]=_localPos.z;
-              dummy.position.copy(_localPos);dummy.updateMatrix();
+              pcaHoverIdx=best;
+              if(s3Data.hoverSphere){
+                if(best>=0){const p=s3Data.pts[best];s3Data.hoverSphere.position.set(p[0],p[1],p[2]);s3Data.hoverSphere.visible=true;}
+                else{s3Data.hoverSphere.visible=false;}
+              }
+            } else {
+              // Drag: delta-position in root-local space (same pattern as mode 4)
+              const prevRL=root.worldToLocal(pcaGrabPrevPos.clone());
+              const currRL=root.worldToLocal(_cPos.clone());
+              _dPos.copy(currRL).sub(prevRL);
+              s3Data.pts[pcaGrabIdx][0]+=_dPos.x;
+              s3Data.pts[pcaGrabIdx][1]+=_dPos.y;
+              s3Data.pts[pcaGrabIdx][2]+=_dPos.z;
+              dummy.position.set(s3Data.pts[pcaGrabIdx][0],s3Data.pts[pcaGrabIdx][1],s3Data.pts[pcaGrabIdx][2]);
+              dummy.updateMatrix();
               s3Data.oIM.setMatrixAt(pcaGrabIdx,dummy.matrix);
               s3Data.oIM.instanceMatrix.needsUpdate=true;
+              if(s3Data.hoverSphere)s3Data.hoverSphere.position.set(s3Data.pts[pcaGrabIdx][0],s3Data.pts[pcaGrabIdx][1],s3Data.pts[pcaGrabIdx][2]);
+              pcaGrabPrevPos.copy(_cPos);
               moved=true;
-            } else if(!trigger&&pcaGrabIdx>=0){
-              // Release point (stay in grab mode for next grab)
+            }
+            // Trigger: grab / release
+            if(trigger&&!prevPcaGrabTrig&&pcaHoverIdx>=0&&pcaGrabIdx<0){
+              pcaGrabIdx=pcaHoverIdx;pcaGrabPrevPos.copy(_cPos);triggerHaptics(0.6,150);
+            } else if(!trigger&&prevPcaGrabTrig&&pcaGrabIdx>=0){
               pcaGrabIdx=-1;triggerHaptics(0.3,80);
             }
             prevPcaGrabTrig=trigger;
+            // Hand curl animation (open → hover half-curl → grab full curl)
+            const tgtPCA=pcaGrabIdx>=0?1.0:pcaHoverIdx>=0?0.45:0.0;
+            vrHandAnimT=THREE.MathUtils.lerp(vrHandAnimT,tgtPCA,Math.min(1,dt*9));
+            updateVRHandCurl(vrHand.fingerChains,vrHand.thumbChain,vrHandAnimT);
           } else {
             // ── Normal right-controller inputs ─────────────────────────────────
             prevPlaneGrip=false;
@@ -2072,12 +2106,12 @@ renderer.setAnimationLoop(()=>{
             // Left thumbstick X → cycle scenario
             const leftStickX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
             if(leftStickX>0.5&&!prevLeftStickTriggered){
-              scenarioMode=(scenarioMode+1)%5;planeEditMode=false;matrixEditMode=false;pcaGrabMode=false;pcaGrabIdx=-1;
+              scenarioMode=(scenarioMode+1)%5;planeEditMode=false;matrixEditMode=false;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;
               mat0Custom=deepCopy2D(PRESETS[presetIdx].A);mat1Custom=deepCopy2D(MAT1_DEFAULT);mat2Custom=deepCopy2D(MAT2_DEFAULT);
               tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
               prevLeftStickTriggered=true;
             } else if(leftStickX<-0.5&&!prevLeftStickTriggered){
-              scenarioMode=(scenarioMode+4)%5;planeEditMode=false;matrixEditMode=false;pcaGrabMode=false;pcaGrabIdx=-1;
+              scenarioMode=(scenarioMode+4)%5;planeEditMode=false;matrixEditMode=false;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;
               mat0Custom=deepCopy2D(PRESETS[presetIdx].A);mat1Custom=deepCopy2D(MAT1_DEFAULT);mat2Custom=deepCopy2D(MAT2_DEFAULT);
               tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
               prevLeftStickTriggered=true;
@@ -2115,7 +2149,8 @@ renderer.setAnimationLoop(()=>{
               pcaGrabMode=true;pcaGrabIdx=-1;prevPcaGrabTrig=false;
               triggerHaptics(0.4,100);updateHUD();updateWristHUD();
             } else if(!xBtn&&prevXBtn&&pcaGrabMode){
-              pcaGrabMode=false;pcaGrabIdx=-1;
+              pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;
+              if(s3Data&&s3Data.hoverSphere)s3Data.hoverSphere.visible=false;
               buildScenario3(false,true); // rebuild PCA with all moved points
               triggerHaptics(0.6,200);updateHUD();updateWristHUD();
             }
