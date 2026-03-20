@@ -464,7 +464,7 @@ function stageName(t){
 }
 function divider(ctx,y,W,IND){
   ctx.strokeStyle='rgba(80,120,255,0.22)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(IND,y);ctx.lineTo(W-IND,y);ctx.stroke();return y+22;
+  ctx.beginPath();ctx.moveTo(IND,y-5);ctx.lineTo(W-IND,y-5);ctx.stroke();return y+22;
 }
 function swatch(ctx,x,y,color,w=22,h=16){ctx.fillStyle=color;ctx.fillRect(x,y-13,w,h);}
 
@@ -636,18 +636,7 @@ function updatePanel(){
       ['#aaaaaa','S key','→ cycle (desktop)'],
     ];
     let _vrRows=[];
-    if(scenarioMode===0){
-      _vrRows=[
-        ['#ffdd55','R trigger','→ advance t (0→3)'],
-        ['#ffdd55','L trigger','→ reverse t (3→0)'],
-        ['#ff8844','R grip','→ cycle matrix preset'],
-        ['#ffaa44','B button','→ matrix editor'],
-        ['#bbff44','X btn (L)','→ enter / exit grab mode'],
-        ['#ff8844','R grip','→ grab / drag point (grab mode)'],
-        ['#ff88ff','A button','→ grab / throw scene'],
-        ..._ctrlCommon,
-      ];
-    } else if(scenarioMode===1||scenarioMode===2){
+    if(scenarioMode===1||scenarioMode===2){
       _vrRows=[
         ['#ffdd55','R trigger','→ advance t (0→3)'],
         ['#ffdd55','L trigger','→ reverse t (3→0)'],
@@ -739,6 +728,8 @@ function updatePanel(){
     ['#ffdd55','L trigger','→ reverse t (3→0)'],
     ['#ff8844','R grip','→ cycle matrix preset'],
     ['#ffaa44','B button','→ matrix editor'],
+    ['#bbff44','X btn (L)','→ enter / exit grab mode'],
+    ['#ff8844','R grip','→ grab / drag point (grab mode)'],
     ['#ff88ff','A button','→ grab / throw scene'],
     ['#44ffcc','L stick ←→','→ cycle scenario'],
     ['#44ffaa','L stick click','→ teleport'],
