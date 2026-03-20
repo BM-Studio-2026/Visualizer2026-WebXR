@@ -1933,7 +1933,7 @@ renderer.setAnimationLoop(()=>{
             _rayDir.transformDirection(_invRootMat);
             // Hover: ray → find closest point (only when not grabbing)
             if(pcaGrabIdx<0){
-              let best=-1,bestD=0.12;
+              let best=-1,bestD=0.20;
               for(let i=0;i<s3Data.pts.length;i++){
                 const p=s3Data.pts[i];
                 _rayDP.set(p[0]-_localPos.x,p[1]-_localPos.y,p[2]-_localPos.z);
@@ -1988,7 +1988,7 @@ renderer.setAnimationLoop(()=>{
               if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
             }
           }
-          if(grip&&!prevGripPressed&&!vrGrabMode){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;mat0Custom=deepCopy2D(PRESETS[presetIdx].A);rebuildScene(true);}
+          if(grip&&!prevGripPressed&&!vrGrabMode&&!pcaGrabMode){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;mat0Custom=deepCopy2D(PRESETS[presetIdx].A);rebuildScene(true);}
           prevGripPressed=grip;
           // Right thumbstick Y → zoom
           const stickY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
