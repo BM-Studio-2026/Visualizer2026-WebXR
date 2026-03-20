@@ -11,9 +11,7 @@
       "WebFetch(domain:svs.gsfc.nasa.gov)",
       "WebFetch(domain:polyhaven.com)",
       "Bash(git rm:*)",
-      "Bash(ls *.py)",
-      "Bash(cp -r dist/* .)",
-      "Bash(cp dist/assets/* assets/)"
+      "Bash(ls *.py)"
     ]
   }
 }
