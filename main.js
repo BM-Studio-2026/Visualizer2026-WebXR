@@ -851,9 +851,9 @@ function updateWristHUD(){
 // ─── Plane editor (VR, mode 4) ────────────────────────────────────────────────
 
 let planeEditMode=false,planeEditRow=0,planeEditCol=0;
-let editPrevStickX=false,editPrevStickY=false,editPrevLGrip=false,editPrevLTrig=false;
+let editPrevStickX=false,editPrevStickY=false,editPrevLGrip=false;
 let matrixEditMode=false,matEditRow=0,matEditCol=0;
-let matEditPrevStickX=false,matEditPrevStickY=false,matEditPrevLGrip=false,matEditPrevLTrig=false;
+let matEditPrevStickX=false,matEditPrevStickY=false,matEditPrevLGrip=false;
 
 // ─── Plane grab mode (VR, mode 4) ─────────────────────────────────────────────
 let vrGrabMode=false,prevXBtn=false;
@@ -945,10 +945,9 @@ function drawEditPanel(){
   ctx.fillStyle='#aaddff';ctx.font='bold 26px monospace';ctx.fillText('Controls',IND,y);y+=32;
   ctx.font='23px monospace';
   for(const[dot,key,desc] of[
-    ['#ffaa44','L stick \u2190\u2192','  select column (A / B / C / D)'],
-    ['#ffaa44','L stick \u2191\u2193','  select row (plane P1 \u2013 P6)'],
-    ['#ffaa44','L grip',  '  increase value  +0.5'],
-    ['#ffaa44','L trigger','  decrease value  \u22120.5'],
+    ['#ffaa44','L stick \u2191\u2193','  +0.5 / \u22120.5 on selected value'],
+    ['#ffaa44','L stick \u2190\u2192','  select A / B / C / D column'],
+    ['#ffaa44','L grip',  '  cycle to next plane (P1\u2192P6)'],
     ['#ff88ff','B button','  exit editor'],
   ]){
     ctx.fillStyle=dot;ctx.fillRect(IND,y-16,10,18);
@@ -1059,10 +1058,9 @@ function drawMatrixEditPanel(){
   ctx.fillStyle='#aaddff';ctx.font='bold 28px monospace';ctx.fillText('Controls',IND,y);y+=36;
   ctx.font='24px monospace';
   for(const[dot,key,desc] of[
+    ['#aaddff','L stick ↑↓','  +0.1 / −0.1 on selected value'],
     ['#aaddff','L stick ←→','  select column'],
-    ['#aaddff','L stick ↑↓','  select row'],
-    ['#aaddff','L grip',    '  increase value  +0.1'],
-    ['#aaddff','L trigger', '  decrease value  −0.1'],
+    ['#aaddff','L grip',    '  cycle to next row'],
     ['#ff88ff','B button',  '  exit editor (matrix kept)'],
   ]){
     ctx.fillStyle=dot;ctx.fillRect(IND,y-18,10,20);
@@ -2079,26 +2077,20 @@ renderer.setAnimationLoop(()=>{
               editPrevStickX=true;triggerHaptics(0.25,50);
               updatePanel();updateWristHUD();
             } else if(Math.abs(lsX)<0.3) editPrevStickX=false;
-            // Up/down → select row (navigate planes)
+            // Up/down → ±0.5 on selected coefficient
             if(lsY<-0.5&&!editPrevStickY){
-              planeEditRow=(planeEditRow+5)%6;
-              editPrevStickY=true;triggerHaptics(0.25,50);
-              updatePanel();updateWristHUD();
-            } else if(lsY>0.5&&!editPrevStickY){
-              planeEditRow=(planeEditRow+1)%6;
-              editPrevStickY=true;triggerHaptics(0.25,50);
-              updatePanel();updateWristHUD();
-            } else if(Math.abs(lsY)<0.3) editPrevStickY=false;
-            // Left grip → increase value +0.5
-            if(grip&&!editPrevLGrip){
               s4PlanesCustom[planeEditRow][planeEditCol]+=0.5;
-              editPrevLGrip=true;triggerHaptics(0.4,80);rebuildScene(false);
-            } else if(!grip) editPrevLGrip=false;
-            // Left trigger → decrease value -0.5
-            if(trigger&&!editPrevLTrig){
+              editPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(lsY>0.5&&!editPrevStickY){
               s4PlanesCustom[planeEditRow][planeEditCol]-=0.5;
-              editPrevLTrig=true;triggerHaptics(0.4,80);rebuildScene(false);
-            } else if(!trigger) editPrevLTrig=false;
+              editPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(Math.abs(lsY)<0.3) editPrevStickY=false;
+            // Left grip → cycle to next plane
+            if(grip&&!editPrevLGrip){
+              planeEditRow=(planeEditRow+1)%6;
+              editPrevLGrip=true;triggerHaptics(0.3,60);
+              updatePanel();updateWristHUD();
+            } else if(!grip) editPrevLGrip=false;
           } else if(matrixEditMode&&scenarioMode<3){
             // ── Matrix editor controls ─────────────────────────────────────────
             const lsX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
@@ -2111,24 +2103,18 @@ renderer.setAnimationLoop(()=>{
             } else if(lsX<-0.5&&!matEditPrevStickX){
               matEditCol=(matEditCol+matCols-1)%matCols;matEditPrevStickX=true;triggerHaptics(0.25,50);updatePanel();updateWristHUD();
             } else if(Math.abs(lsX)<0.3) matEditPrevStickX=false;
-            // Up/down → select row (navigate rows)
+            // Up/down → ±0.1 on selected element
             if(lsY<-0.5&&!matEditPrevStickY){
-              matEditRow=(matEditRow+matRows-1)%matRows;
-              matEditPrevStickY=true;triggerHaptics(0.25,50);updatePanel();updateWristHUD();
-            } else if(lsY>0.5&&!matEditPrevStickY){
-              matEditRow=(matEditRow+1)%matRows;
-              matEditPrevStickY=true;triggerHaptics(0.25,50);updatePanel();updateWristHUD();
-            } else if(Math.abs(lsY)<0.3) matEditPrevStickY=false;
-            // Left grip → increase value +0.1
-            if(grip&&!matEditPrevLGrip){
               mat[matEditRow][matEditCol]=Math.round((mat[matEditRow][matEditCol]+0.1)*100)/100;
-              matEditPrevLGrip=true;triggerHaptics(0.4,80);rebuildScene(false);
-            } else if(!grip) matEditPrevLGrip=false;
-            // Left trigger → decrease value -0.1
-            if(trigger&&!matEditPrevLTrig){
+              matEditPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(lsY>0.5&&!matEditPrevStickY){
               mat[matEditRow][matEditCol]=Math.round((mat[matEditRow][matEditCol]-0.1)*100)/100;
-              matEditPrevLTrig=true;triggerHaptics(0.4,80);rebuildScene(false);
-            } else if(!trigger) matEditPrevLTrig=false;
+              matEditPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(Math.abs(lsY)<0.3) matEditPrevStickY=false;
+            // Left grip → cycle to next row
+            if(grip&&!matEditPrevLGrip){
+              matEditRow=(matEditRow+1)%matRows;matEditPrevLGrip=true;triggerHaptics(0.3,60);updatePanel();updateWristHUD();
+            } else if(!grip) matEditPrevLGrip=false;
           } else {
             // ── Normal controls ────────────────────────────────────────────────
             if(scenarioMode===4){
