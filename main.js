@@ -464,7 +464,7 @@ function stageName(t){
 }
 function divider(ctx,y,W,IND){
   ctx.strokeStyle='rgba(80,120,255,0.22)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(IND,y-25);ctx.lineTo(W-IND,y-25);ctx.stroke();return y+22;
+  ctx.beginPath();ctx.moveTo(IND,y-20);ctx.lineTo(W-IND,y-20);ctx.stroke();return y+22;
 }
 function swatch(ctx,x,y,color,w=22,h=16){ctx.fillStyle=color;ctx.fillRect(x,y-13,w,h);}
 
