@@ -636,11 +636,24 @@ function updatePanel(){
       ['#aaaaaa','S key','→ cycle (desktop)'],
     ];
     let _vrRows=[];
-    if(scenarioMode===1||scenarioMode===2){
+    if(scenarioMode===0){
+      _vrRows=[
+        ['#ffdd55','R trigger','→ advance t (0→3)'],
+        ['#ffdd55','L trigger','→ reverse t (3→0)'],
+        ['#ff8844','R grip','→ cycle matrix preset'],
+        ['#ffaa44','B button','→ matrix editor'],
+        ['#bbff44','X btn (L)','→ enter / exit grab mode'],
+        ['#ff8844','R grip','→ grab / drag point (grab mode)'],
+        ['#ff88ff','A button','→ grab / throw scene'],
+        ..._ctrlCommon,
+      ];
+    } else if(scenarioMode===1||scenarioMode===2){
       _vrRows=[
         ['#ffdd55','R trigger','→ advance t (0→3)'],
         ['#ffdd55','L trigger','→ reverse t (3→0)'],
         ['#ffaa44','B button','→ matrix editor'],
+        ['#bbff44','X btn (L)','→ enter / exit grab mode'],
+        ['#ff8844','R grip','→ grab / drag point (grab mode)'],
         ['#ff88ff','A button','→ grab / throw scene'],
         ..._ctrlCommon,
       ];
@@ -1297,11 +1310,12 @@ s4GlowSprite.scale.setScalar(0.55);s4GlowSprite.visible=false;
 
 // ─── Rebuild scene ────────────────────────────────────────────────────────────
 
-function rebuildScene(speak=false){
-  if(scenarioMode===1){buildScenario1(speak);return;}
-  if(scenarioMode===2){buildScenario2(speak);return;}
+function rebuildScene(speak=false,keepPts=false){
+  if(scenarioMode===1){buildScenario1(speak,keepPts);return;}
+  if(scenarioMode===2){buildScenario2(speak,keepPts);return;}
   if(scenarioMode===3){buildScenario3(speak);return;}
   if(scenarioMode===4){buildScenario4(speak);return;}
+  svdGrabIdx=-1;
   root.clear();svLabels=[];
   if(speak)speakText(`Matrix: ${PRESETS[presetIdx].name}`);
   root.add(new THREE.AxesHelper(1.8));
@@ -1313,7 +1327,7 @@ function rebuildScene(speak=false){
 
   const A=mat0Custom;
   currentSVD=makeRotationalSVD(A);
-  points=genPoints(30,42);
+  if(!keepPts) points=genPoints(30,42);
   cubeCorners=buildCubeCorners(points);
 
   // InstancedMesh for original (ghost) and transformed points
@@ -1358,6 +1372,9 @@ function rebuildScene(speak=false){
     root.add(lbl);svLabels.push(lbl);
   }
 
+  // Hover sphere for SVD grab mode
+  svdHoverSphere=new THREE.Mesh(new THREE.SphereGeometry(0.10,12,9),new THREE.MeshBasicMaterial({color:0xffff00,transparent:true,opacity:0.75,depthWrite:false}));
+  svdHoverSphere.visible=false;root.add(svdHoverSphere);
   // Reset pulse / trails
   if(pulseRing){root.remove(pulseRing);pulseRing=null;}pulseAge=-1;lastTFloor=0;lastSpokenStage=-1;
   initTrails();
@@ -1438,10 +1455,11 @@ function sceneCommon(speak,name){
 
 // ─── Scenario 1: 2×3 Projection (R³→R²) ─────────────────────────────────────
 
-function buildScenario1(speak){
+function buildScenario1(speak,keepPts=false){
+  svdGrabIdx=-1;
   sceneCommon(speak,SCENARIO_NAMES[1]);
   const A=mat1Custom,svd=svd2x3(A);
-  const pts=genPoints(30,7);
+  const pts=(keepPts&&s1Data)?s1Data.pts:genPoints(30,7);
   const V=svd.V;
   // Image plane: normal = V[:,2] (third right singular vector)
   root.add(makeSemiPlane([V[0][2],V[1][2],V[2][2]],0x4466ff,0.18,5));
@@ -1462,7 +1480,9 @@ function buildScenario1(speak){
   const cubeW=makeSegs(cubePosArray(cubeC),matCO);
   const cubeR=makeSegs(cubePosArray(cubeC),matCT);
   root.add(cubeW);root.add(cubeR);
-  s1Data={svd,pts,tIM,cubeC,cubeR,A};
+  const hs1=new THREE.Mesh(new THREE.SphereGeometry(0.10,12,9),new THREE.MeshBasicMaterial({color:0xffff00,transparent:true,opacity:0.75,depthWrite:false}));
+  hs1.visible=false;root.add(hs1);
+  s1Data={svd,pts,tIM,oIM,hoverSphere:hs1,cubeC,cubeR,A};
   initTrails();updateScenario1();updatePanel();updateHUD();updateWristHUD();
 }
 
@@ -1477,10 +1497,11 @@ function updateScenario1(){
 
 // ─── Scenario 2: 3×2 Lifting (R²→R³) ────────────────────────────────────────
 
-function buildScenario2(speak){
+function buildScenario2(speak,keepPts=false){
+  svdGrabIdx=-1;
   sceneCommon(speak,SCENARIO_NAMES[2]);
   const A=mat2Custom,svd=svd3x2(A);
-  const pts2d=genPoints2D(30,7);
+  const pts2d=(keepPts&&s2Data)?s2Data.pts2d:genPoints2D(30,7);
   const pts3d=pts2d.map(p=>[p[0],p[1],0]);
   // Domain plane (xy, z=0)
   root.add(makeSemiPlane([0,0,1],0xff4422,0.15,5));
@@ -1504,7 +1525,9 @@ function buildScenario2(speak){
   const squareW=makeSegs(squarePosFlat(squareC),matCO);
   const squareR=makeSegs(squarePosFlat(squareC),matCT);
   root.add(squareW);root.add(squareR);
-  s2Data={svd,pts2d,tIM,squareC,squareR,squareW,A};
+  const hs2=new THREE.Mesh(new THREE.SphereGeometry(0.10,12,9),new THREE.MeshBasicMaterial({color:0xffff00,transparent:true,opacity:0.75,depthWrite:false}));
+  hs2.visible=false;root.add(hs2);
+  s2Data={svd,pts2d,tIM,oIM,hoverSphere:hs2,squareC,squareR,squareW,A};
   initTrails();updateScenario2();updatePanel();updateHUD();updateWristHUD();
 }
 
@@ -1781,8 +1804,11 @@ const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_invQ=new THREE.Qu
 const _invRootMat=new THREE.Matrix4(),_localPos=new THREE.Vector3();
 const _rayDir=new THREE.Vector3(),_rayDP=new THREE.Vector3(),_rayPerp=new THREE.Vector3();
 const _pcaGrabOff=new THREE.Vector3();
+let svdGrabMode=false,svdGrabIdx=-1,svdHoverIdx=-1;
+let svdHoverSphere=null;
+const _svdGrabOff=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
-renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;vrGrabMode=false;grabbedPlaneIdx=-1;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;});
+renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;vrGrabMode=false;grabbedPlaneIdx=-1;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;svdGrabMode=false;svdGrabIdx=-1;svdHoverIdx=-1;});
 
 function triggerHaptics(intensity=0.65,duration=180){
   if(!currentXRSession)return;
@@ -2004,6 +2030,68 @@ renderer.setAnimationLoop(()=>{
             const tgtPCA=pcaGrabIdx>=0?1.0:pcaHoverIdx>=0?0.45:0.0;
             vrHandAnimT=THREE.MathUtils.lerp(vrHandAnimT,tgtPCA,Math.min(1,dt*9));
             updateVRHandCurl(vrHand.fingerChains,vrHand.thumbChain,vrHandAnimT);
+          } else if(svdGrabMode&&scenarioMode<3){
+            // ── SVD point grab mode (modes 0-2) ──────────────────────────────
+            ctrlGrp.getWorldPosition(_cPos);
+            tmpMatrix.identity().extractRotation(ctrlGrp.matrixWorld);
+            _rayDir.set(0,0,-1).applyMatrix4(tmpMatrix);
+            _invRootMat.copy(root.matrixWorld).invert();
+            _localPos.copy(_cPos).applyMatrix4(_invRootMat);
+            _rayDir.transformDirection(_invRootMat);
+            const _svdN=scenarioMode===0?points.length:scenarioMode===1?(s1Data?s1Data.pts.length:0):(s2Data?s2Data.pts2d.length:0);
+            const _svdHS=scenarioMode===0?svdHoverSphere:scenarioMode===1?(s1Data&&s1Data.hoverSphere):(s2Data&&s2Data.hoverSphere);
+            // Hover: ray → closest point
+            if(svdGrabIdx<0){
+              let best=-1,bestD=0.20;
+              for(let i=0;i<_svdN;i++){
+                const p=scenarioMode===0?points[i]:scenarioMode===1?s1Data.pts[i]:[s2Data.pts2d[i][0],s2Data.pts2d[i][1],0];
+                _rayDP.set(p[0]-_localPos.x,p[1]-_localPos.y,p[2]-_localPos.z);
+                const t=_rayDP.dot(_rayDir);if(t<0)continue;
+                _rayPerp.copy(_rayDP).addScaledVector(_rayDir,-t);
+                if(_rayPerp.length()<bestD){bestD=_rayPerp.length();best=i;}
+              }
+              svdHoverIdx=best;
+              if(_svdHS){
+                if(best>=0){const p=scenarioMode===0?points[best]:scenarioMode===1?s1Data.pts[best]:[s2Data.pts2d[best][0],s2Data.pts2d[best][1],0];_svdHS.position.set(p[0],p[1],p[2]);_svdHS.visible=true;}
+                else _svdHS.visible=false;
+              }
+            }
+            // Grip → grab / release
+            if(grip&&!prevPlaneGrip&&svdHoverIdx>=0&&svdGrabIdx<0){
+              svdGrabIdx=svdHoverIdx;
+              const p=scenarioMode===0?points[svdGrabIdx]:scenarioMode===1?s1Data.pts[svdGrabIdx]:[s2Data.pts2d[svdGrabIdx][0],s2Data.pts2d[svdGrabIdx][1],0];
+              _svdGrabOff.set(p[0]-_localPos.x,p[1]-_localPos.y,p[2]-_localPos.z);
+              triggerHaptics(0.6,150);
+            } else if(!grip&&svdGrabIdx>=0){
+              svdGrabIdx=-1;triggerHaptics(0.3,80);
+              if(_svdHS)_svdHS.visible=false;
+            }
+            // Drag
+            if(grip&&svdGrabIdx>=0){
+              const nx=_localPos.x+_svdGrabOff.x,ny=_localPos.y+_svdGrabOff.y;
+              const nz=scenarioMode===2?0:_localPos.z+_svdGrabOff.z;
+              if(scenarioMode===0){
+                points[svdGrabIdx][0]=nx;points[svdGrabIdx][1]=ny;points[svdGrabIdx][2]=nz;
+                dummy.position.set(nx,ny,nz);dummy.updateMatrix();
+                origIM.setMatrixAt(svdGrabIdx,dummy.matrix);origIM.instanceMatrix.needsUpdate=true;
+                transIM.setMatrixAt(svdGrabIdx,dummy.matrix);transIM.instanceMatrix.needsUpdate=true;
+              } else if(scenarioMode===1){
+                s1Data.pts[svdGrabIdx][0]=nx;s1Data.pts[svdGrabIdx][1]=ny;s1Data.pts[svdGrabIdx][2]=nz;
+                dummy.position.set(nx,ny,nz);dummy.updateMatrix();
+                s1Data.oIM.setMatrixAt(svdGrabIdx,dummy.matrix);s1Data.oIM.instanceMatrix.needsUpdate=true;
+                s1Data.tIM.setMatrixAt(svdGrabIdx,dummy.matrix);s1Data.tIM.instanceMatrix.needsUpdate=true;
+              } else {
+                s2Data.pts2d[svdGrabIdx][0]=nx;s2Data.pts2d[svdGrabIdx][1]=ny;
+                dummy.position.set(nx,ny,0);dummy.updateMatrix();
+                s2Data.oIM.setMatrixAt(svdGrabIdx,dummy.matrix);s2Data.oIM.instanceMatrix.needsUpdate=true;
+                s2Data.tIM.setMatrixAt(svdGrabIdx,dummy.matrix);s2Data.tIM.instanceMatrix.needsUpdate=true;
+              }
+              if(_svdHS)_svdHS.position.set(nx,ny,scenarioMode===2?0:nz);
+            }
+            prevPlaneGrip=grip;
+            const tgtSVD=svdGrabIdx>=0?1.0:svdHoverIdx>=0?0.45:0.0;
+            vrHandAnimT=THREE.MathUtils.lerp(vrHandAnimT,tgtSVD,Math.min(1,dt*9));
+            updateVRHandCurl(vrHand.fingerChains,vrHand.thumbChain,vrHandAnimT);
           } else {
             // ── Normal right-controller inputs ─────────────────────────────────
             prevPlaneGrip=false;
@@ -2019,7 +2107,7 @@ renderer.setAnimationLoop(()=>{
               if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
             }
           }
-          if(grip&&!prevGripPressed&&!vrGrabMode&&!pcaGrabMode){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;mat0Custom=deepCopy2D(PRESETS[presetIdx].A);rebuildScene(true);}
+          if(grip&&!prevGripPressed&&!vrGrabMode&&!pcaGrabMode&&!svdGrabMode){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;mat0Custom=deepCopy2D(PRESETS[presetIdx].A);rebuildScene(true);}
           prevGripPressed=grip;
           // Right thumbstick Y → zoom
           const stickY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
@@ -2133,7 +2221,7 @@ renderer.setAnimationLoop(()=>{
             // Left thumbstick X → cycle scenario
             const leftStickX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
             if(leftStickX>0.5&&!prevLeftStickTriggered){
-              scenarioMode=(scenarioMode+1)%5;planeEditMode=false;matrixEditMode=false;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;
+              scenarioMode=(scenarioMode+1)%5;planeEditMode=false;matrixEditMode=false;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;svdGrabMode=false;svdGrabIdx=-1;svdHoverIdx=-1;
               mat0Custom=deepCopy2D(PRESETS[presetIdx].A);mat1Custom=deepCopy2D(MAT1_DEFAULT);mat2Custom=deepCopy2D(MAT2_DEFAULT);
               tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
               prevLeftStickTriggered=true;
@@ -2181,7 +2269,19 @@ renderer.setAnimationLoop(()=>{
               buildScenario3(false,true); // rebuild PCA with all moved points
               triggerHaptics(0.6,200);updateHUD();updateWristHUD();
             }
-          } else if(scenarioMode!==4) vrGrabMode=false;
+          } else if(scenarioMode<3){
+            if(xBtn&&!prevXBtn){
+              svdGrabMode=true;svdGrabIdx=-1;svdHoverIdx=-1;
+              triggerHaptics(0.4,100);updateHUD();updateWristHUD();
+            } else if(!xBtn&&prevXBtn&&svdGrabMode){
+              svdGrabMode=false;svdGrabIdx=-1;svdHoverIdx=-1;
+              if(scenarioMode===0&&svdHoverSphere)svdHoverSphere.visible=false;
+              else if(scenarioMode===1&&s1Data&&s1Data.hoverSphere)s1Data.hoverSphere.visible=false;
+              else if(scenarioMode===2&&s2Data&&s2Data.hoverSphere)s2Data.hoverSphere.visible=false;
+              rebuildScene(false,true); // rebuild with moved points
+              triggerHaptics(0.6,200);updateHUD();updateWristHUD();
+            }
+          }
           prevXBtn=xBtn;
           // Attach wrist HUD to left controller once
           if(!wristHUDAttached){ctrlGrp.add(wristMesh);wristHUDAttached=true;}
@@ -2203,7 +2303,7 @@ renderer.setAnimationLoop(()=>{
 
   // VR hand visibility — show/hide and sync transform with right controller
   const _rightCtrl=ctrlByHand['right'];
-  const _shouldShowHand=((vrGrabMode&&scenarioMode===4)||(pcaGrabMode&&scenarioMode===3))&&renderer.xr.isPresenting&&!!_rightCtrl;
+  const _shouldShowHand=((vrGrabMode&&scenarioMode===4)||(pcaGrabMode&&scenarioMode===3)||(svdGrabMode&&scenarioMode<3))&&renderer.xr.isPresenting&&!!_rightCtrl;
   if(_shouldShowHand!==vrHand.grp.visible){
     vrHand.grp.visible=_shouldShowHand;
     if(_rightCtrl)_rightCtrl.children.forEach(c=>c.visible=!_shouldShowHand);
