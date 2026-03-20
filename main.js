@@ -1947,17 +1947,17 @@ renderer.setAnimationLoop(()=>{
                 else s3Data.hoverSphere.visible=false;
               }
             }
-            // Trigger → grab / release / drag
-            if(trigger&&!prevPcaGrabTrig&&pcaHoverIdx>=0&&pcaGrabIdx<0){
+            // Grip → grab / release / drag
+            if(grip&&!prevPlaneGrip&&pcaHoverIdx>=0&&pcaGrabIdx<0){
               pcaGrabIdx=pcaHoverIdx;
               const p=s3Data.pts[pcaGrabIdx];
               _pcaGrabOff.set(p[0]-_localPos.x,p[1]-_localPos.y,p[2]-_localPos.z);
               triggerHaptics(0.6,150);
-            } else if(!trigger&&pcaGrabIdx>=0){
+            } else if(!grip&&pcaGrabIdx>=0){
               pcaGrabIdx=-1;triggerHaptics(0.3,80);
               if(s3Data.hoverSphere)s3Data.hoverSphere.visible=false;
             }
-            if(trigger&&pcaGrabIdx>=0){
+            if(grip&&pcaGrabIdx>=0){
               const nx=_localPos.x+_pcaGrabOff.x;
               const ny=_localPos.y+_pcaGrabOff.y;
               const nz=_localPos.z+_pcaGrabOff.z;
@@ -1967,8 +1967,8 @@ renderer.setAnimationLoop(()=>{
               s3Data.tIM.setMatrixAt(pcaGrabIdx,dummy.matrix);s3Data.tIM.instanceMatrix.needsUpdate=true;
               if(s3Data.hoverSphere)s3Data.hoverSphere.position.set(nx,ny,nz);
             }
-            prevPcaGrabTrig=trigger;
-            prevPlaneGrip=false;
+            prevPcaGrabTrig=false;
+            prevPlaneGrip=grip;
             // Hand curl: open → half-curl (hover) → full curl (grabbed)
             const tgtPCA=pcaGrabIdx>=0?1.0:pcaHoverIdx>=0?0.45:0.0;
             vrHandAnimT=THREE.MathUtils.lerp(vrHandAnimT,tgtPCA,Math.min(1,dt*9));
