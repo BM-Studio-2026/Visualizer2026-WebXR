@@ -1923,7 +1923,6 @@ renderer.setAnimationLoop(()=>{
             prevPlaneGrip=grip;
           } else if(pcaGrabMode&&scenarioMode===3&&s3Data){
             // ── PCA point grab mode (ray-based hover) ─────────────────────────
-            prevPlaneGrip=false;
             ctrlGrp.getWorldPosition(_cPos);
             _cQuat.setFromRotationMatrix(ctrlGrp.matrixWorld);
             // Ray from controller forward in world space
@@ -1966,13 +1965,13 @@ renderer.setAnimationLoop(()=>{
               pcaGrabPrevPos.copy(_cPos);
               moved=true;
             }
-            // Trigger: grab / release
-            if(trigger&&!prevPcaGrabTrig&&pcaHoverIdx>=0&&pcaGrabIdx<0){
+            // Grip: grab / release (consistent with LSE module)
+            if(grip&&!prevPlaneGrip&&pcaHoverIdx>=0&&pcaGrabIdx<0){
               pcaGrabIdx=pcaHoverIdx;pcaGrabPrevPos.copy(_cPos);triggerHaptics(0.6,150);
-            } else if(!trigger&&prevPcaGrabTrig&&pcaGrabIdx>=0){
+            } else if(!grip&&prevPlaneGrip&&pcaGrabIdx>=0){
               pcaGrabIdx=-1;triggerHaptics(0.3,80);
             }
-            prevPcaGrabTrig=trigger;
+            prevPlaneGrip=grip;
             // Hand curl animation (open → hover half-curl → grab full curl)
             const tgtPCA=pcaGrabIdx>=0?1.0:pcaHoverIdx>=0?0.45:0.0;
             vrHandAnimT=THREE.MathUtils.lerp(vrHandAnimT,tgtPCA,Math.min(1,dt*9));
