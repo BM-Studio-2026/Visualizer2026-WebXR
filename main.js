@@ -464,7 +464,7 @@ function stageName(t){
 }
 function divider(ctx,y,W,IND){
   ctx.strokeStyle='rgba(80,120,255,0.22)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(IND,y);ctx.lineTo(W-IND,y);ctx.stroke();return y+14;
+  ctx.beginPath();ctx.moveTo(IND,y);ctx.lineTo(W-IND,y);ctx.stroke();return y+22;
 }
 function swatch(ctx,x,y,color,w=22,h=16){ctx.fillStyle=color;ctx.fillRect(x,y-13,w,h);}
 
@@ -919,7 +919,7 @@ function drawEditPanel(){
   for(let c=0;c<4;c++)ctx.fillText('ABCD'[c],CX[c],y);
   y+=8;y=divider(ctx,y,W,IND);
   // Rows
-  for(let r=0;r<5;r++){
+  for(let r=0;r<6;r++){
     const selRow=r===planeEditRow;
     if(selRow){ctx.fillStyle='rgba(255,160,60,0.10)';ctx.fillRect(IND-6,y-26,W-IND,42);}
     ctx.fillStyle=selRow?'#ffaa44':'#444455';ctx.font='bold 29px monospace';
@@ -947,7 +947,7 @@ function drawEditPanel(){
   for(const[dot,key,desc] of[
     ['#ffaa44','L stick \u2191\u2193','  +0.5 / \u22120.5 on selected value'],
     ['#ffaa44','L stick \u2190\u2192','  select A / B / C / D column'],
-    ['#ffaa44','L grip',  '  cycle to next plane (P1\u2192P5)'],
+    ['#ffaa44','L grip',  '  cycle to next plane (P1\u2192P6)'],
     ['#ff88ff','B button','  exit editor'],
   ]){
     ctx.fillStyle=dot;ctx.fillRect(IND,y-16,10,18);
@@ -2087,7 +2087,7 @@ renderer.setAnimationLoop(()=>{
             } else if(Math.abs(lsY)<0.3) editPrevStickY=false;
             // Left grip → cycle to next plane
             if(grip&&!editPrevLGrip){
-              planeEditRow=(planeEditRow+1)%5;
+              planeEditRow=(planeEditRow+1)%6;
               editPrevLGrip=true;triggerHaptics(0.3,60);
               updatePanel();updateWristHUD();
             } else if(!grip) editPrevLGrip=false;
