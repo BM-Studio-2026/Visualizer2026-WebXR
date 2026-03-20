@@ -497,9 +497,17 @@ function updatePanel(){
       ctx.fillStyle='#bbccee';ctx.font='24px monospace';
       for(const line of['Stage 1: rotate by V (3×3 right sing vecs)','Stage 2: Σ scaling + collapse z → plane','Stage 3: U rotation → image plane']){ctx.fillText(line,IND,y);y+=28;}
       y+=4;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
+      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=30;
       ctx.fillStyle='#cccccc';ctx.font='24px monospace';
-      ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
+      ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
+      {const[xU,xS,xV]=svdColX(W,IND);
+      const sig=s1Data.svd.s;
+      const Sigma1=[[sig[0],0,0],[0,sig[1],0]];
+      const Vt1=s1Data.svd.V[0].map((_,c)=>s1Data.svd.V.map(r=>r[c]));
+      const hU=panelMatBlock(ctx,'U (2×2)',s1Data.svd.U,xU,y,'#44cccc');
+      panelMatBlock(ctx,'Σ (2×3)',Sigma1,xS,y,'#ffdd55');
+      const hV=panelMatBlock(ctx,'Vᵀ (3×3)',Vt1,xV,y,'#cc88ff');
+      y+=Math.max(hU,hV)+6;}
       y=divider(ctx,y,W,IND);
       ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
       ctx.font='22px monospace';
@@ -522,9 +530,17 @@ function updatePanel(){
       ctx.fillStyle='#bbccee';ctx.font='24px monospace';
       for(const line of['Stage 1: rotate by V (2×2 right sing vecs)','Stage 2: Σ stretching (σ₁, σ₂)','Stage 3: U lifts into 3D']){ctx.fillText(line,IND,y);y+=28;}
       y+=4;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
+      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=30;
       ctx.fillStyle='#cccccc';ctx.font='24px monospace';
-      ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
+      ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
+      {const[xU,xS,xV]=svdColX(W,IND);
+      const sig=s2Data.svd.s;
+      const Sigma2=[[sig[0],0],[0,sig[1]],[0,0]];
+      const Vt2=s2Data.svd.V[0].map((_,c)=>s2Data.svd.V.map(r=>r[c]));
+      const hU=panelMatBlock(ctx,'U (3×3)',s2Data.svd.U,xU,y,'#44cccc');
+      panelMatBlock(ctx,'Σ (3×2)',Sigma2,xS,y,'#ffdd55');
+      const hV=panelMatBlock(ctx,'Vᵀ (2×2)',Vt2,xV,y,'#cc88ff');
+      y+=Math.max(hU,hV)+6;}
       y=divider(ctx,y,W,IND);
       ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
       ctx.font='22px monospace';
@@ -632,11 +648,13 @@ function updatePanel(){
   if(svd){
     const sv=[svd.Sigma[0][0],svd.Sigma[1][1],svd.Sigma[2][2]];
     ctx.fillStyle='#cccccc';ctx.font='24px monospace';
-    ctx.fillText(`σ = [ ${sv.map(s=>s.toFixed(3)).join(',  ')} ]`,IND,y);y+=32;
-    const{axis:aV,angle:thV}=axisAngle(svd.V);
-    ctx.fillStyle='#cc88ff';ctx.fillText(`V: ${(thV*180/Math.PI).toFixed(1)}°  axis=(${aV.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=32;
-    const{axis:aU,angle:thU}=axisAngle(svd.U);
-    ctx.fillStyle='#44cccc';ctx.fillText(`U: ${(thU*180/Math.PI).toFixed(1)}°  axis=(${aU.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=34;
+    ctx.fillText(`σ = [ ${sv.map(s=>s.toFixed(3)).join(',  ')} ]`,IND,y);y+=30;
+    const[xU,xS,xV]=svdColX(W,IND);
+    const Vt=svd.V[0].map((_,c)=>svd.V.map(r=>r[c]));
+    const hU=panelMatBlock(ctx,'U (3×3)',svd.U,xU,y,'#44cccc');
+    panelMatBlock(ctx,'Σ (3×3)',svd.Sigma,xS,y,'#ffdd55');
+    panelMatBlock(ctx,'Vᵀ (3×3)',Vt,xV,y,'#cc88ff');
+    y+=hU+6;
   }
   y=divider(ctx,y,W,IND);
   ctx.fillStyle='#88bbff';ctx.font='bold 28px monospace';ctx.fillText('Legend',IND,y);y+=32;
@@ -898,6 +916,23 @@ function drawEditPanel(){
     ctx.fillStyle='#88aadd';ctx.fillText(desc,IND+290,y);y+=28;
   }
   panelTex.needsUpdate=true;
+}
+
+// ─── Shared helper: draw a labeled matrix block on a panel canvas ─────────────
+function panelMatBlock(ctx,label,m,bx,by,color){
+  const RH=25,FSV=19;
+  ctx.fillStyle=color;ctx.font='bold 21px monospace';ctx.fillText(label,bx,by);
+  let ly=by+27;
+  ctx.font=`${FSV}px monospace`;
+  for(let r=0;r<m.length;r++){
+    const entries=m[r].map(v=>v.toFixed(2).padStart(6));
+    ctx.fillStyle=color;ctx.fillText(`[${entries.join('')}]`,bx,ly);ly+=RH;
+  }
+  return ly-by;
+}
+function svdColX(W,IND){
+  const span=(W-2*IND)/3;
+  return[IND,Math.round(IND+span),Math.round(IND+2*span)];
 }
 
 // ─── Matrix editor panel (VR, modes 0-2) ──────────────────────────────────────
