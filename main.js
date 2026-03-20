@@ -427,11 +427,11 @@ reticle.rotation.x=-Math.PI/2;reticle.visible=false;scene.add(reticle);
 
 // ─── Info panel ───────────────────────────────────────────────────────────────
 
-const PANEL_W=1024,PANEL_H=1080;
+const PANEL_W=1024,PANEL_H=1600;
 const panelCanvas=document.createElement('canvas');panelCanvas.width=PANEL_W;panelCanvas.height=PANEL_H;
 const panelCtx=panelCanvas.getContext('2d');
 const panelTex=new THREE.CanvasTexture(panelCanvas);
-const panelMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.90),new THREE.MeshBasicMaterial({map:panelTex,side:THREE.DoubleSide,transparent:true,depthWrite:false}));
+const panelMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.8,2.81),new THREE.MeshBasicMaterial({map:panelTex,side:THREE.DoubleSide,transparent:true,depthWrite:false}));
 panelMesh.position.set(2.4,1.6,-1.8);panelMesh.lookAt(0,1.6,0);scene.add(panelMesh);
 
 const SV_COLORS=['#00ddff','#ff44cc','#ffee00'];
@@ -478,31 +478,31 @@ function updatePanel(){
   let y=46,IND=30;
 
   if(scenarioMode>0){
-    ctx.fillStyle='#7799ff';ctx.font='bold 38px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=42;
+    ctx.fillStyle='#7799ff';ctx.font='bold 42px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=42;
     if(scenarioMode!==4){
-      ctx.fillStyle='#ffdd55';ctx.font='bold 27px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
-      ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
+      ctx.fillStyle='#ffdd55';ctx.font='bold 30px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
+      ctx.fillStyle='#aaaaaa';ctx.font='24px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
     } else {
       const s4t=(s4Data?s4Data.planeCount-3:0);
-      ctx.fillStyle='#ffdd55';ctx.font='bold 27px monospace';ctx.fillText(`t = ${s4t.toFixed(2)}`,IND,y);
-      ctx.fillStyle='#aaaaaa';ctx.font='22px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
+      ctx.fillStyle='#ffdd55';ctx.font='bold 30px monospace';ctx.fillText(`t = ${s4t.toFixed(2)}`,IND,y);
+      ctx.fillStyle='#aaaaaa';ctx.font='24px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
     }
     y=divider(ctx,y,W,IND);
     // ── Mode 1: 2×3 matrix + legend ─────────────────────────────────────────
     if(scenarioMode===1&&s1Data){
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Matrix A (2×3):  R³ → R²',IND,y);y+=26;
-      ctx.fillStyle='#bbccee';ctx.font='22px monospace';ctx.fillText('A =',IND,y);
+      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Matrix A (2×3):  R³ → R²',IND,y);y+=26;
+      ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('A =',IND,y);
       for(let r=0;r<2;r++){const row=s1Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
       y+=2*29+10;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#bbccee';ctx.font='22px monospace';
+      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
       for(const line of['Stage 1: rotate by V (3×3 right sing vecs)','Stage 2: Σ scaling + collapse z → plane','Stage 3: U rotation → image plane']){ctx.fillText(line,IND,y);y+=28;}
       y+=4;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
-      ctx.fillStyle='#cccccc';ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
+      ctx.fillStyle='#cccccc';ctx.font='24px monospace';
       ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='20px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='22px monospace';
       for(const[col,lbl] of[
         ['#00eeff','Original 3D points (ghost)'],
         ['#ff7722','Projected points'],
@@ -515,19 +515,19 @@ function updatePanel(){
     }
     // ── Mode 2: 3×2 matrix + legend ─────────────────────────────────────────
     if(scenarioMode===2&&s2Data){
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Matrix A (3×2):  R² → R³',IND,y);y+=26;
-      ctx.fillStyle='#bbccee';ctx.font='22px monospace';ctx.fillText('A =',IND,y);
+      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Matrix A (3×2):  R² → R³',IND,y);y+=26;
+      ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('A =',IND,y);
       for(let r=0;r<3;r++){const row=s2Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
       y+=3*29+10;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#bbccee';ctx.font='22px monospace';
+      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
       for(const line of['Stage 1: rotate by V (2×2 right sing vecs)','Stage 2: Σ stretching (σ₁, σ₂)','Stage 3: U lifts into 3D']){ctx.fillText(line,IND,y);y+=28;}
       y+=4;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
-      ctx.fillStyle='#cccccc';ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('Singular values:',IND,y);y+=30;
+      ctx.fillStyle='#cccccc';ctx.font='24px monospace';
       ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=32;
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='20px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='22px monospace';
       for(const[col,lbl] of[
         ['#00eeff','Original 2D input points (ghost)'],
         ['#ff7722','Lifted / transformed points'],
@@ -541,23 +541,23 @@ function updatePanel(){
     // ── Mode 3: covariance / eigenvalues / variance + legend ─────────────────
     if(scenarioMode===3&&s3Data){
       const{Cov,evals}=s3Data.pca;
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Covariance matrix (normalized):',IND,y);y+=26;
-      ctx.fillStyle='#bbccee';ctx.font='22px monospace';ctx.fillText('Cov =',IND,y);
+      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Covariance matrix (normalized):',IND,y);y+=26;
+      ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('Cov =',IND,y);
       for(let r=0;r<3;r++){const row=Cov[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+72,y+r*28);}
       y+=3*28+10;y=divider(ctx,y,W,IND);
       const tot=evals[0]+evals[1]+evals[2]||1;
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Eigenvalues:',IND,y);y+=30;
-      ctx.fillStyle='#cccccc';ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('Eigenvalues:',IND,y);y+=30;
+      ctx.fillStyle='#cccccc';ctx.font='24px monospace';
       ctx.fillText(`λ₁=${evals[0].toFixed(3)},  λ₂=${evals[1].toFixed(3)},  λ₃=${evals[2].toFixed(3)}`,IND,y);y+=28;
       ctx.fillStyle='#ffffaa';
       ctx.fillText(`Var 2D = ${((evals[0]+evals[1])/tot*100).toFixed(1)}%  (PC1+PC2)`,IND,y);y+=28;
       ctx.fillText(`Var 1D = ${(evals[0]/tot*100).toFixed(1)}%  (PC1 only)`,IND,y);y+=32;
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#bbccee';ctx.font='22px monospace';
+      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
       for(const line of['Stage 1: align to PC axes','Stage 2: project to PC1-PC2 plane','Stage 3: project to PC1 line']){ctx.fillText(line,IND,y);y+=28;}
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='20px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='22px monospace';
       for(const[col,lbl] of[
         ['#00eeff','Original 3D cloud (ghost)'],
         ['#ff7722','Aligned / projected points'],
@@ -573,23 +573,23 @@ function updatePanel(){
       const cnt=s4Data.planeCount;
       const lseCur=[s4Data.lse3,s4Data.lse4,s4Data.lse5][cnt-3];
       const nPlanes=cnt;
-      ctx.fillStyle='#bbccee';ctx.font='22px monospace';
+      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
       ctx.fillText(`${nPlanes} planes active`,IND,y);y+=28;
       ctx.fillText('LS minimizes \u03a3(dist\u00b2 to planes)',IND,y);y+=28;
       ctx.fillText('R-trig: add plane   L-trig: remove',IND,y);y+=28;
       y+=4;y=divider(ctx,y,W,IND);
       const x=lseCur.xLS;
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('LS Solution:',IND,y);y+=30;
-      ctx.fillStyle='#ffdd55';ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('LS Solution:',IND,y);y+=30;
+      ctx.fillStyle='#ffdd55';ctx.font='24px monospace';
       ctx.fillText(`x=${x[0].toFixed(3)}, y=${x[1].toFixed(3)}, z=${x[2].toFixed(3)}`,IND,y);y+=28;
       ctx.fillStyle='#cccccc';
       ctx.fillText(`Residuals: ${lseCur.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=28;
       const rms4=Math.sqrt(lseCur.dists.reduce((s,d)=>s+d*d,0)/lseCur.dists.length);
-      ctx.fillStyle='#ff8844';ctx.font='bold 22px monospace';
+      ctx.fillStyle='#ff8844';ctx.font='bold 24px monospace';
       ctx.fillText(`RMS Error: ${rms4.toFixed(4)}`,IND,y);y+=32;
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='20px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
+      ctx.font='22px monospace';
       for(const[col,lbl] of[
         ['#ffffcc','LS solution (animated sphere)'],
         ['#aaaaaa','Residual lines to planes'],
@@ -602,8 +602,8 @@ function updatePanel(){
       ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
     }
     y=divider(ctx,y,W,IND);
-    ctx.fillStyle='#7799ff';ctx.font='bold 22px monospace';ctx.fillText('VR Controls',IND,y);y+=28;
-    ctx.font='19px monospace';
+    ctx.fillStyle='#7799ff';ctx.font='bold 24px monospace';ctx.fillText('VR Controls',IND,y);y+=28;
+    ctx.font='21px monospace';
     const c2='#88aadd';
     for(const[dot,key,desc2] of[
       ['#ffdd55','R trigger','→ advance t (0→3)'],['#ffdd55','L trigger','→ reverse t (3→0)'],
@@ -619,19 +619,19 @@ function updatePanel(){
     panelTex.needsUpdate=true;return;
   }
 
-  const preset=PRESETS[presetIdx];const A=preset.A;const svd=currentSVD;
-  ctx.fillStyle='#7799ff';ctx.font='bold 38px monospace';ctx.fillText('3×3 SVD Transform',IND,y);y+=42;
-  ctx.fillStyle='#88aadd';ctx.font='bold 24px monospace';ctx.fillText(`Preset: ${preset.name}`,IND,y);y+=30;
-  ctx.fillStyle='#bbccee';ctx.font='22px monospace';ctx.fillText('A =',IND,y);
+  const preset=PRESETS[presetIdx];const A=mat0Custom;const svd=currentSVD;
+  ctx.fillStyle='#7799ff';ctx.font='bold 42px monospace';ctx.fillText('3×3 SVD Transform',IND,y);y+=42;
+  ctx.fillStyle='#88aadd';ctx.font='bold 26px monospace';ctx.fillText(`Preset: ${preset.name}`,IND,y);y+=30;
+  ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('A =',IND,y);
   for(let r=0;r<3;r++){const row=A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
   y+=3*29+8;y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#ffdd55';ctx.font='bold 27px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
-  ctx.fillStyle='#aaaaaa';ctx.font='24px monospace';ctx.fillText(stageName(tParam),IND+148,y);y+=38;
+  ctx.fillStyle='#ffdd55';ctx.font='bold 30px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
+  ctx.fillStyle='#aaaaaa';ctx.font='26px monospace';ctx.fillText(stageName(tParam),IND+148,y);y+=38;
   y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#88bbff';ctx.font='bold 25px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=34;
+  ctx.fillStyle='#88bbff';ctx.font='bold 28px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=34;
   if(svd){
     const sv=[svd.Sigma[0][0],svd.Sigma[1][1],svd.Sigma[2][2]];
-    ctx.fillStyle='#cccccc';ctx.font='22px monospace';
+    ctx.fillStyle='#cccccc';ctx.font='24px monospace';
     ctx.fillText(`σ = [ ${sv.map(s=>s.toFixed(3)).join(',  ')} ]`,IND,y);y+=32;
     const{axis:aV,angle:thV}=axisAngle(svd.V);
     ctx.fillStyle='#cc88ff';ctx.fillText(`V: ${(thV*180/Math.PI).toFixed(1)}°  axis=(${aV.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=32;
@@ -639,8 +639,8 @@ function updatePanel(){
     ctx.fillStyle='#44cccc';ctx.fillText(`U: ${(thU*180/Math.PI).toFixed(1)}°  axis=(${aU.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=34;
   }
   y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#88bbff';ctx.font='bold 25px monospace';ctx.fillText('Legend',IND,y);y+=32;
-  ctx.font='21px monospace';
+  ctx.fillStyle='#88bbff';ctx.font='bold 28px monospace';ctx.fillText('Legend',IND,y);y+=32;
+  ctx.font='23px monospace';
   for(const[col,label] of[['#ff4444','X axis →'],['#44ff44','Y axis ↑'],['#4488ff','Z axis ·']]){
     swatch(ctx,IND,y,col);ctx.fillStyle='#cccccc';ctx.fillText(label,IND+30,y);y+=27;
   }
@@ -654,14 +654,14 @@ function updatePanel(){
   y+=4;
   ctx.setLineDash([8,5]);
   ctx.strokeStyle='#aa55ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+22,y-8);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='#cc88ff';ctx.font='21px monospace';ctx.fillText('V rotation axis (stage 1)',IND+30,y);y+=27;
+  ctx.fillStyle='#cc88ff';ctx.font='23px monospace';ctx.fillText('V rotation axis (stage 1)',IND+30,y);y+=27;
   ctx.setLineDash([8,5]);
   ctx.strokeStyle='#00cccc';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+22,y-8);ctx.stroke();ctx.setLineDash([]);
   ctx.fillStyle='#44cccc';ctx.fillText('U rotation axis (stage 3)',IND+30,y);y+=32;
   y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#7799ff';ctx.font='bold 22px monospace';
+  ctx.fillStyle='#7799ff';ctx.font='bold 24px monospace';
   ctx.fillText('VR Controls',IND,y);y+=28;
-  ctx.font='19px monospace';
+  ctx.font='21px monospace';
   const ctrl2col='#88aadd';
   const ctrlRows=[
     ['#ffdd55','R trigger','→ advance t (0→3)'],
@@ -852,12 +852,12 @@ function drawEditPanel(){
   ctx.fillStyle='rgba(8,8,24,0.97)';drawRoundRect(ctx,0,0,W,H,28);ctx.fill();
   ctx.strokeStyle='rgba(255,160,60,0.7)';ctx.lineWidth=3;drawRoundRect(ctx,2,2,W-4,H-4,28);ctx.stroke();
   let y=58;
-  ctx.fillStyle='#ffaa44';ctx.font='bold 46px monospace';ctx.fillText('PLANE  EDITOR',IND,y);y+=54;
-  ctx.fillStyle='#888888';ctx.font='22px monospace';ctx.fillText('Ax + By + Cz = D',IND,y);y+=34;
+  ctx.fillStyle='#ffaa44';ctx.font='bold 50px monospace';ctx.fillText('PLANE  EDITOR',IND,y);y+=54;
+  ctx.fillStyle='#888888';ctx.font='24px monospace';ctx.fillText('Ax + By + Cz = D',IND,y);y+=34;
   y=divider(ctx,y,W,IND);
   // Column headers
   const CX=[150,350,550,750];
-  ctx.fillStyle='#aaaaaa';ctx.font='bold 24px monospace';
+  ctx.fillStyle='#aaaaaa';ctx.font='bold 29px monospace';
   ctx.fillText('Plane',IND,y);
   for(let c=0;c<4;c++)ctx.fillText('ABCD'[c],CX[c],y);
   y+=8;y=divider(ctx,y,W,IND);
@@ -865,9 +865,9 @@ function drawEditPanel(){
   for(let r=0;r<5;r++){
     const selRow=r===planeEditRow;
     if(selRow){ctx.fillStyle='rgba(255,160,60,0.10)';ctx.fillRect(IND-6,y-26,W-IND,42);}
-    ctx.fillStyle=selRow?'#ffaa44':'#444455';ctx.font='bold 26px monospace';
+    ctx.fillStyle=selRow?'#ffaa44':'#444455';ctx.font='bold 29px monospace';
     ctx.fillText(selRow?'\u25b6':' ',IND,y);
-    ctx.fillStyle=S4_CSS_COLORS[r];ctx.font='bold 26px monospace';
+    ctx.fillStyle=S4_CSS_COLORS[r];ctx.font='bold 29px monospace';
     ctx.fillText(`P${r+1}`,IND+28,y);
     for(let c=0;c<4;c++){
       const selCell=selRow&&c===planeEditCol;
@@ -876,17 +876,17 @@ function drawEditPanel(){
       if(selCell){
         const tw=ctx.measureText(str).width;
         ctx.fillStyle='rgba(255,220,80,0.28)';ctx.fillRect(CX[c]-7,y-24,tw+14,32);
-        ctx.fillStyle='#ffee44';ctx.font='bold 26px monospace';
+        ctx.fillStyle='#ffee44';ctx.font='bold 29px monospace';
       } else {
-        ctx.fillStyle=selRow?'#cccccc':'#778899';ctx.font='26px monospace';
+        ctx.fillStyle=selRow?'#cccccc':'#778899';ctx.font='29px monospace';
       }
       ctx.fillText(str,CX[c],y);
     }
     y+=42;
   }
   y+=6;y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#aaddff';ctx.font='bold 24px monospace';ctx.fillText('Controls',IND,y);y+=32;
-  ctx.font='21px monospace';
+  ctx.fillStyle='#aaddff';ctx.font='bold 26px monospace';ctx.fillText('Controls',IND,y);y+=32;
+  ctx.font='23px monospace';
   for(const[dot,key,desc] of[
     ['#ffaa44','L stick \u2191\u2193','  +0.5 / \u22120.5 on selected value'],
     ['#ffaa44','L stick \u2190\u2192','  select A / B / C / D column'],
@@ -903,93 +903,95 @@ function drawEditPanel(){
 // ─── Matrix editor panel (VR, modes 0-2) ──────────────────────────────────────
 
 function drawMatrixEditPanel(){
-  const ctx=panelCtx,W=PANEL_W,H=PANEL_H,IND=30;
+  const ctx=panelCtx,W=PANEL_W,H=PANEL_H,IND=22;
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='rgba(8,8,24,0.97)';drawRoundRect(ctx,0,0,W,H,28);ctx.fill();
   ctx.strokeStyle='rgba(80,160,255,0.65)';ctx.lineWidth=3;drawRoundRect(ctx,2,2,W-4,H-4,28);ctx.stroke();
-  let y=56;
+  let y=60;
+  // ── Title ─────────────────────────────────────────────────────────────────────
   const titles=['MATRIX EDITOR  3×3','MATRIX EDITOR  2×3','MATRIX EDITOR  3×2'];
-  ctx.fillStyle='#aaddff';ctx.font='bold 42px monospace';ctx.fillText(titles[scenarioMode],IND,y);y+=50;
+  ctx.fillStyle='#aaddff';ctx.font='bold 48px monospace';ctx.fillText(titles[scenarioMode],IND,y);y+=60;
   const mat=scenarioMode===0?mat0Custom:scenarioMode===1?mat1Custom:mat2Custom;
   const nRows=mat.length,nCols=mat[0].length;
-  // Column headers
-  const CX=[190,435,680];
-  ctx.fillStyle='#aaaaaa';ctx.font='bold 22px monospace';
-  ctx.fillText('row',IND,y);
-  for(let c=0;c<nCols;c++)ctx.fillText(`col ${c}`,CX[c],y);
+  // ── Editable Matrix A ─────────────────────────────────────────────────────────
+  ctx.fillStyle='#88bbff';ctx.font='bold 28px monospace';ctx.fillText('Matrix A  (editable):',IND,y);y+=36;
+  const MAT_X=IND+70;const COL_W=Math.floor((W-MAT_X-IND)/nCols);
+  ctx.fillStyle='#888888';ctx.font='24px monospace';
+  for(let c=0;c<nCols;c++)ctx.fillText(`col ${c}`,MAT_X+c*COL_W,y);
   y+=8;y=divider(ctx,y,W,IND);
-  // Matrix rows
   for(let r=0;r<nRows;r++){
     const selRow=r===matEditRow;
-    if(selRow){ctx.fillStyle='rgba(80,160,255,0.12)';ctx.fillRect(IND-6,y-26,W-IND,42);}
-    ctx.fillStyle=selRow?'#aaddff':'#445566';ctx.font='bold 26px monospace';ctx.fillText(selRow?'▶':' ',IND,y);
-    ctx.fillStyle='#bbccee';ctx.font='bold 26px monospace';ctx.fillText(`r${r}`,IND+28,y);
+    if(selRow){ctx.fillStyle='rgba(80,160,255,0.14)';ctx.fillRect(IND-4,y-30,W-IND+4,48);}
+    ctx.fillStyle=selRow?'#aaddff':'#445566';ctx.font='bold 30px monospace';ctx.fillText(selRow?'▶':' ',IND,y);
+    ctx.fillStyle='#bbccee';ctx.fillText(`r${r}`,IND+32,y);
     for(let c=0;c<nCols;c++){
       const selCell=selRow&&c===matEditCol;
       const str=mat[r][c].toFixed(2);
+      ctx.font='bold 30px monospace';
       if(selCell){
         const tw=ctx.measureText(str).width;
-        ctx.fillStyle='rgba(80,200,255,0.28)';ctx.fillRect(CX[c]-7,y-24,tw+14,32);
-        ctx.fillStyle='#44eeff';ctx.font='bold 26px monospace';
+        ctx.fillStyle='rgba(80,200,255,0.30)';ctx.fillRect(MAT_X+c*COL_W-6,y-28,tw+12,36);
+        ctx.fillStyle='#44eeff';
       } else {
-        ctx.fillStyle=selRow?'#cccccc':'#778899';ctx.font='26px monospace';
+        ctx.fillStyle=selRow?'#cccccc':'#778899';
       }
-      ctx.fillText(str,CX[c],y);
+      ctx.fillText(str,MAT_X+c*COL_W,y);
     }
-    y+=42;
+    y+=48;
   }
-  y+=6;y=divider(ctx,y,W,IND);
-  // SVD decomposition
-  ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('SVD decomposition:',IND,y);y+=30;
-  ctx.font='20px monospace';
+  y+=8;y=divider(ctx,y,W,IND);
+  // ── SVD: A = U · Σ · Vᵀ ──────────────────────────────────────────────────────
+  ctx.fillStyle='#88bbff';ctx.font='bold 28px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=38;
+  // helper: draw a labeled matrix block, returns height used
+  const RH=28,FSV=21,LH=30;
+  const xU=IND,xS=Math.round(IND+(W-2*IND)/3),xV=Math.round(IND+2*(W-2*IND)/3);
+  function drawMatBlock(label,m,bx,by,color){
+    ctx.fillStyle=color;ctx.font=`bold 23px monospace`;ctx.fillText(label,bx,by);
+    let ly=by+LH;
+    ctx.font=`${FSV}px monospace`;
+    for(let r=0;r<m.length;r++){
+      const entries=m[r].map(v=>v.toFixed(2).padStart(6));
+      ctx.fillStyle=color;ctx.fillText(`[${entries.join('')}]`,bx,ly);ly+=RH;
+    }
+    return ly-by;
+  }
+  let svdH=0;
   if(scenarioMode===0&&currentSVD){
-    const sv=[currentSVD.Sigma[0][0],currentSVD.Sigma[1][1],currentSVD.Sigma[2][2]];
-    ctx.fillStyle='#cccccc';ctx.fillText(`Σ = diag( ${sv.map(s=>s.toFixed(3)).join(',  ')} )`,IND,y);y+=28;
-    const{axis:aV,angle:thV}=axisAngle(currentSVD.V);
-    ctx.fillStyle='#cc88ff';ctx.fillText(`V: ${(thV*180/Math.PI).toFixed(1)}°  axis=(${aV.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=28;
-    const{axis:aU,angle:thU}=axisAngle(currentSVD.U);
-    ctx.fillStyle='#44cccc';ctx.fillText(`U: ${(thU*180/Math.PI).toFixed(1)}°  axis=(${aU.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=28;
+    const Vt=currentSVD.V[0].map((_,c)=>currentSVD.V.map(r=>r[c]));
+    const hU=drawMatBlock('U (3×3)',currentSVD.U,xU,y,'#44cccc');
+    drawMatBlock('Σ (3×3)',currentSVD.Sigma,xS,y,'#ffdd55');
+    drawMatBlock('Vᵀ (3×3)',Vt,xV,y,'#cc88ff');
+    svdH=hU;
   } else if(scenarioMode===1&&s1Data){
-    ctx.fillStyle='#cccccc';ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
-    ctx.fillStyle='#cc88ff';ctx.font='bold 20px monospace';ctx.fillText('V columns (right sing vecs, 3D):',IND,y);y+=26;
-    ctx.font='20px monospace';
-    for(let i=0;i<2;i++){
-      const V=s1Data.svd.V;
-      ctx.fillStyle='#cc88ff';ctx.fillText(`v${i+1}=(${[V[0][i],V[1][i],V[2][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
-    }
-    ctx.fillStyle='#44cccc';ctx.font='bold 20px monospace';ctx.fillText('U columns (left sing vecs, 2D):',IND,y);y+=26;
-    ctx.font='20px monospace';
-    for(let i=0;i<2;i++){
-      const U=s1Data.svd.U;
-      ctx.fillStyle='#44cccc';ctx.fillText(`u${i+1}=(${[U[0][i],U[1][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
-    }
+    const sig=s1Data.svd.s;
+    const Sigma1=[[sig[0],0,0],[0,sig[1],0]];
+    const Vt1=s1Data.svd.V[0].map((_,c)=>s1Data.svd.V.map(r=>r[c]));
+    const hU=drawMatBlock('U (2×2)',s1Data.svd.U,xU,y,'#44cccc');
+    drawMatBlock('Σ (2×3)',Sigma1,xS,y,'#ffdd55');
+    const hV=drawMatBlock('Vᵀ (3×3)',Vt1,xV,y,'#cc88ff');
+    svdH=Math.max(hU,hV);
   } else if(scenarioMode===2&&s2Data){
-    ctx.fillStyle='#cccccc';ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
-    ctx.fillStyle='#44cccc';ctx.font='bold 20px monospace';ctx.fillText('U columns (left sing vecs, 3D):',IND,y);y+=26;
-    ctx.font='20px monospace';
-    for(let i=0;i<2;i++){
-      const U=s2Data.svd.U;
-      ctx.fillStyle='#44cccc';ctx.fillText(`u${i+1}=(${[U[0][i],U[1][i],U[2][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
-    }
-    ctx.fillStyle='#cc88ff';ctx.font='bold 20px monospace';ctx.fillText('V columns (right sing vecs, 2D):',IND,y);y+=26;
-    ctx.font='20px monospace';
-    for(let i=0;i<2;i++){
-      const V=s2Data.svd.V;
-      ctx.fillStyle='#cc88ff';ctx.fillText(`v${i+1}=(${[V[0][i],V[1][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
-    }
+    const sig=s2Data.svd.s;
+    const Sigma2=[[sig[0],0],[0,sig[1]],[0,0]];
+    const Vt2=s2Data.svd.V[0].map((_,c)=>s2Data.svd.V.map(r=>r[c]));
+    const hU=drawMatBlock('U (3×3)',s2Data.svd.U,xU,y,'#44cccc');
+    drawMatBlock('Σ (3×2)',Sigma2,xS,y,'#ffdd55');
+    drawMatBlock('Vᵀ (2×2)',Vt2,xV,y,'#cc88ff');
+    svdH=hU;
   }
-  y+=6;y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#aaddff';ctx.font='bold 24px monospace';ctx.fillText('Controls',IND,y);y+=32;
-  ctx.font='21px monospace';
+  y+=svdH+10;y=divider(ctx,y,W,IND);
+  // ── Controls ──────────────────────────────────────────────────────────────────
+  ctx.fillStyle='#aaddff';ctx.font='bold 28px monospace';ctx.fillText('Controls',IND,y);y+=36;
+  ctx.font='24px monospace';
   for(const[dot,key,desc] of[
     ['#aaddff','L stick ↑↓','  +0.1 / −0.1 on selected value'],
     ['#aaddff','L stick ←→','  select column'],
     ['#aaddff','L grip',    '  cycle to next row'],
-    ['#ff88ff','B button',  '  exit editor'],
+    ['#ff88ff','B button',  '  exit editor (matrix kept)'],
   ]){
-    ctx.fillStyle=dot;ctx.fillRect(IND,y-16,10,18);
+    ctx.fillStyle=dot;ctx.fillRect(IND,y-18,10,20);
     ctx.fillStyle='#ffffff';ctx.fillText(key,IND+18,y);
-    ctx.fillStyle='#88aadd';ctx.fillText(desc,IND+290,y);y+=28;
+    ctx.fillStyle='#88aadd';ctx.fillText(desc,IND+310,y);y+=32;
   }
   panelTex.needsUpdate=true;
 }
@@ -1105,7 +1107,7 @@ function makeLabel(text,colorStr,size='normal'){
     normal:{w:320,h:72,  font:'bold 28px monospace',tx:160,ty:50,sx:0.55,sy:0.13},
     big:   {w:768,h:110, font:'bold 52px monospace',tx:384,ty:78,sx:1.30,sy:0.19},
     axis:  {w:80, h:80,  font:'bold 56px monospace',tx:40, ty:60,sx:0.22,sy:0.22},
-  }[size]||{w:256,h:64,font:'bold 24px monospace',tx:128,ty:44,sx:0.44,sy:0.11};
+  }[size]||{w:256,h:64,font:'bold 26px monospace',tx:128,ty:44,sx:0.44,sy:0.11};
   const c=document.createElement('canvas');c.width=cfg.w;c.height=cfg.h;
   const ctx=c.getContext('2d');
   ctx.font=cfg.font;
