@@ -1481,9 +1481,10 @@ function updateScenario2(){
 
 // ─── Scenario 3: 3D PCA ───────────────────────────────────────────────────────
 
-function buildScenario3(speak){
+function buildScenario3(speak, keepPts=false){
+  pcaGrabIdx=-1;
   sceneCommon(speak,SCENARIO_NAMES[3]);
-  const pts=genPancake3D(60,11);
+  const pts=(keepPts&&s3Data)?s3Data.pts:genPancake3D(60,11);
   const pca=pca3(pts);
   const V=pca.V,mn=pca.mean;
   // Best-fit PC1-PC2 plane (normal = V[:,2])
@@ -1504,7 +1505,7 @@ function buildScenario3(speak){
   // White bounding cube (static reference)
   root.add(makeSegs(cubePosArray(buildCubeCorners(pts)),matCO));
   const lbl=makeLabel('3D PCA','#88aaff','big');lbl.position.set(0,2.5,0);root.add(lbl);
-  s3Data={pca,pts,tIM};
+  s3Data={pca,pts,tIM,oIM};
   initTrails();updateScenario3();updatePanel();updateHUD();updateWristHUD();
 }
 
@@ -1724,9 +1725,11 @@ let baseRefSpace=null,teleportTarget=null,prevThumbPressed=false,currentXRSessio
 const grabCtrlPos=new THREE.Vector3(),grabCtrlQuat=new THREE.Quaternion();
 const throwVel=new THREE.Vector3();
 let grabActive=false,prevAPressed=false;
+let pcaGrabIdx=-1;
 // Pre-allocated temps (avoid per-frame allocation)
 const _cPos=new THREE.Vector3(),_cQuat=new THREE.Quaternion();
 const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_invQ=new THREE.Quaternion(),_rp=new THREE.Vector3();
+const _invRootMat=new THREE.Matrix4(),_localPos=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
 renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;vrGrabMode=false;grabbedPlaneIdx=-1;});
 
@@ -1922,30 +1925,62 @@ renderer.setAnimationLoop(()=>{
             rootScale=THREE.MathUtils.clamp(rootScale-stickY*0.9*dt,0.10,2.0);
             root.scale.setScalar(rootScale);moved=true;
           }
-          // A button (buttons[4]) → grab, drag, rotate, throw
+          // A button (buttons[4]) → mode 3: grab PCA point | else: grab/rotate/throw scene
           const aBtn=src.gamepad.buttons[4]?.pressed??false;
-          if(aBtn){
+          if(scenarioMode===3&&s3Data){
             _cPos.setFromMatrixPosition(ctrlGrp.matrixWorld);
-            _cQuat.setFromRotationMatrix(ctrlGrp.matrixWorld);
-            if(!prevAPressed){
-              // Grab start — record controller pose, reset throw velocity
-              grabCtrlPos.copy(_cPos);grabCtrlQuat.copy(_cQuat);
-              throwVel.set(0,0,0);grabActive=true;
-            } else if(grabActive){
-              // Delta position: move root with the hand
-              _dPos.copy(_cPos).sub(grabCtrlPos);
-              throwVel.copy(_dPos).divideScalar(Math.max(dt,0.001)); // record velocity for throw
-              root.position.add(_dPos);
-              // Delta rotation: rotate root around the controller (grab point)
-              _invQ.copy(grabCtrlQuat).invert(); // store inverse separately — avoids aliasing bug
-              _dQuat.copy(_cQuat).multiply(_invQ);
-              _rp.copy(root.position).sub(_cPos).applyQuaternion(_dQuat);
-              root.position.copy(_cPos).add(_rp);
-              root.quaternion.premultiply(_dQuat);
-              grabCtrlPos.copy(_cPos);grabCtrlQuat.copy(_cQuat);
+            if(aBtn&&!prevAPressed){
+              // Find nearest point in root-local space within threshold 0.22
+              _invRootMat.copy(root.matrixWorld).invert();
+              _localPos.copy(_cPos).applyMatrix4(_invRootMat);
+              let best=-1,bestD=0.22*0.22;
+              for(let i=0;i<s3Data.pts.length;i++){
+                const p=s3Data.pts[i];
+                const dx=_localPos.x-p[0],dy=_localPos.y-p[1],dz=_localPos.z-p[2];
+                const d2=dx*dx+dy*dy+dz*dz;
+                if(d2<bestD){bestD=d2;best=i;}
+              }
+              if(best>=0){pcaGrabIdx=best;triggerHaptics(0.6,150);}
+            } else if(aBtn&&pcaGrabIdx>=0){
+              // Drag: update grabbed point to controller's root-local position
+              _invRootMat.copy(root.matrixWorld).invert();
+              _localPos.copy(_cPos).applyMatrix4(_invRootMat);
+              s3Data.pts[pcaGrabIdx][0]=_localPos.x;
+              s3Data.pts[pcaGrabIdx][1]=_localPos.y;
+              s3Data.pts[pcaGrabIdx][2]=_localPos.z;
+              dummy.position.copy(_localPos);dummy.updateMatrix();
+              s3Data.oIM.setMatrixAt(pcaGrabIdx,dummy.matrix);
+              s3Data.oIM.instanceMatrix.needsUpdate=true;
+            } else if(!aBtn&&prevAPressed&&pcaGrabIdx>=0){
+              // Release: rebuild PCA keeping moved points
+              buildScenario3(false,true);
+            } else if(!aBtn){
+              pcaGrabIdx=-1;
             }
-          } else if(prevAPressed){
-            grabActive=false; // release — throwVel carries the momentum
+          } else {
+            if(aBtn){
+              _cPos.setFromMatrixPosition(ctrlGrp.matrixWorld);
+              _cQuat.setFromRotationMatrix(ctrlGrp.matrixWorld);
+              if(!prevAPressed){
+                // Grab start — record controller pose, reset throw velocity
+                grabCtrlPos.copy(_cPos);grabCtrlQuat.copy(_cQuat);
+                throwVel.set(0,0,0);grabActive=true;
+              } else if(grabActive){
+                // Delta position: move root with the hand
+                _dPos.copy(_cPos).sub(grabCtrlPos);
+                throwVel.copy(_dPos).divideScalar(Math.max(dt,0.001));
+                root.position.add(_dPos);
+                // Delta rotation: rotate root around the controller (grab point)
+                _invQ.copy(grabCtrlQuat).invert();
+                _dQuat.copy(_cQuat).multiply(_invQ);
+                _rp.copy(root.position).sub(_cPos).applyQuaternion(_dQuat);
+                root.position.copy(_cPos).add(_rp);
+                root.quaternion.premultiply(_dQuat);
+                grabCtrlPos.copy(_cPos);grabCtrlQuat.copy(_cQuat);
+              }
+            } else if(prevAPressed){
+              grabActive=false; // release — throwVel carries the momentum
+            }
           }
           prevAPressed=aBtn;
           // B button → toggle matrix editor (modes 0-2) or plane editor (mode 4)
