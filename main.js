@@ -1749,6 +1749,7 @@ const _cPos=new THREE.Vector3(),_cQuat=new THREE.Quaternion();
 const _dPos=new THREE.Vector3(),_dQuat=new THREE.Quaternion(),_invQ=new THREE.Quaternion(),_rp=new THREE.Vector3();
 const _invRootMat=new THREE.Matrix4(),_localPos=new THREE.Vector3();
 const _rayDir=new THREE.Vector3(),_rayDP=new THREE.Vector3(),_rayPerp=new THREE.Vector3();
+const _pcaGrabOff=new THREE.Vector3();
 renderer.xr.addEventListener('sessionstart',()=>{baseRefSpace=renderer.xr.getReferenceSpace();currentXRSession=renderer.xr.getSession();wristHUDAttached=false;});
 renderer.xr.addEventListener('sessionend',()=>{baseRefSpace=null;currentXRSession=null;wristHUDAttached=false;grabActive=false;prevAPressed=false;vrGrabMode=false;grabbedPlaneIdx=-1;pcaGrabMode=false;pcaGrabIdx=-1;pcaHoverIdx=-1;});
 
@@ -1950,24 +1951,24 @@ renderer.setAnimationLoop(()=>{
                 else{s3Data.hoverSphere.visible=false;}
               }
             } else {
-              // Drag: delta-position in root-local space (same pattern as mode 4)
-              const prevRL=root.worldToLocal(pcaGrabPrevPos.clone());
-              const currRL=root.worldToLocal(_cPos.clone());
-              _dPos.copy(currRL).sub(prevRL);
-              s3Data.pts[pcaGrabIdx][0]+=_dPos.x;
-              s3Data.pts[pcaGrabIdx][1]+=_dPos.y;
-              s3Data.pts[pcaGrabIdx][2]+=_dPos.z;
-              dummy.position.set(s3Data.pts[pcaGrabIdx][0],s3Data.pts[pcaGrabIdx][1],s3Data.pts[pcaGrabIdx][2]);
-              dummy.updateMatrix();
-              s3Data.oIM.setMatrixAt(pcaGrabIdx,dummy.matrix);
-              s3Data.oIM.instanceMatrix.needsUpdate=true;
-              if(s3Data.hoverSphere)s3Data.hoverSphere.position.set(s3Data.pts[pcaGrabIdx][0],s3Data.pts[pcaGrabIdx][1],s3Data.pts[pcaGrabIdx][2]);
-              pcaGrabPrevPos.copy(_cPos);
-              moved=true;
+              // Drag: offset-based (ctrl local pos + grab offset recorded at grab start)
+              const nx=_localPos.x+_pcaGrabOff.x;
+              const ny=_localPos.y+_pcaGrabOff.y;
+              const nz=_localPos.z+_pcaGrabOff.z;
+              s3Data.pts[pcaGrabIdx][0]=nx;
+              s3Data.pts[pcaGrabIdx][1]=ny;
+              s3Data.pts[pcaGrabIdx][2]=nz;
+              dummy.position.set(nx,ny,nz);dummy.updateMatrix();
+              s3Data.oIM.setMatrixAt(pcaGrabIdx,dummy.matrix);s3Data.oIM.instanceMatrix.needsUpdate=true;
+              s3Data.tIM.setMatrixAt(pcaGrabIdx,dummy.matrix);s3Data.tIM.instanceMatrix.needsUpdate=true;
+              if(s3Data.hoverSphere)s3Data.hoverSphere.position.set(nx,ny,nz);
             }
             // Grip: grab / release (consistent with LSE module)
             if(grip&&!prevPlaneGrip&&pcaHoverIdx>=0&&pcaGrabIdx<0){
-              pcaGrabIdx=pcaHoverIdx;pcaGrabPrevPos.copy(_cPos);triggerHaptics(0.6,150);
+              pcaGrabIdx=pcaHoverIdx;
+              const p=s3Data.pts[pcaGrabIdx];
+              _pcaGrabOff.set(p[0]-_localPos.x,p[1]-_localPos.y,p[2]-_localPos.z);
+              triggerHaptics(0.6,150);
             } else if(!grip&&prevPlaneGrip&&pcaGrabIdx>=0){
               pcaGrabIdx=-1;triggerHaptics(0.3,80);
             }
