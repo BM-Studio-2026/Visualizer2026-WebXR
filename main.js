@@ -480,28 +480,28 @@ function updatePanel(){
   let y=46,IND=30;
 
   if(scenarioMode>0){
-    ctx.fillStyle='#7799ff';ctx.font='bold 42px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=42;
+    ctx.fillStyle='#7799ff';ctx.font='bold 50px monospace';ctx.fillText(SCENARIO_NAMES[scenarioMode],IND,y);y+=50;
     if(scenarioMode!==4){
-      ctx.fillStyle='#ffdd55';ctx.font='bold 30px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
-      ctx.fillStyle='#aaaaaa';ctx.font='24px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
+      ctx.fillStyle='#ffdd55';ctx.font='bold 36px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
+      ctx.fillStyle='#aaaaaa';ctx.font='29px monospace';ctx.fillText(stageName(tParam),IND+168,y);y+=43;
     } else {
       const s4t=(s4Data?s4Data.planeCount-3:0);
-      ctx.fillStyle='#ffdd55';ctx.font='bold 30px monospace';ctx.fillText(`t = ${s4t.toFixed(2)}`,IND,y);
-      ctx.fillStyle='#aaaaaa';ctx.font='24px monospace';ctx.fillText(stageName(tParam),IND+140,y);y+=36;
+      ctx.fillStyle='#ffdd55';ctx.font='bold 36px monospace';ctx.fillText(`t = ${s4t.toFixed(2)}`,IND,y);
+      ctx.fillStyle='#aaaaaa';ctx.font='29px monospace';ctx.fillText(stageName(tParam),IND+168,y);y+=43;
     }
     y=divider(ctx,y,W,IND);
     // ── Mode 1: 2×3 matrix + legend ─────────────────────────────────────────
     if(scenarioMode===1&&s1Data){
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Matrix A (2×3):  R³ → R²',IND,y);y+=26;
-      ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('A =',IND,y);
-      for(let r=0;r<2;r++){const row=s1Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
-      y+=2*29+10;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
-      for(const line of['Stage 1: rotate by V (3×3 right sing vecs)','Stage 2: Σ scaling + collapse z → plane','Stage 3: U rotation → image plane']){ctx.fillText(line,IND,y);y+=28;}
-      y+=4;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=30;
-      ctx.fillStyle='#cccccc';ctx.font='24px monospace';
-      ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
+      ctx.fillStyle='#88bbff';ctx.font='bold 29px monospace';ctx.fillText('Matrix A (2×3):  R³ → R²',IND,y);y+=31;
+      ctx.fillStyle='#bbccee';ctx.font='29px monospace';ctx.fillText('A =',IND,y);
+      for(let r=0;r<2;r++){const row=s1Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+72,y+r*35);}
+      y+=2*35+12;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#bbccee';ctx.font='29px monospace';
+      for(const line of['Stage 1: rotate by V (3×3 right sing vecs)','Stage 2: Σ scaling + collapse z → plane','Stage 3: U rotation → image plane']){ctx.fillText(line,IND,y);y+=34;}
+      y+=5;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#88bbff';ctx.font='bold 31px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=36;
+      ctx.fillStyle='#cccccc';ctx.font='29px monospace';
+      ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=34;
       {const[xU,xS,xV]=svdColX(W,IND);
       const sig=s1Data.svd.s;
       const Sigma1=[[sig[0],0,0],[0,sig[1],0]];
@@ -510,12 +510,12 @@ function updatePanel(){
       panelMatBlock(ctx,'Σ (2×3)',Sigma1,xS,y,'#ffdd55');
       const hV=panelMatBlock(ctx,'Vᵀ (3×3)',Vt1,xV,y,'#cc88ff');
       y+=Math.max(hU,hV)+6;
-      ctx.fillStyle='#44cccc';ctx.font='22px monospace';
-      ctx.fillText(`V rot angle: ${rotAngle3D(s1Data.svd.V).toFixed(1)}°  (Stage 1)`,IND,y);y+=26;
-      ctx.fillText(`U rot angle: ${rotAngle2D(s1Data.svd.U).toFixed(1)}°  (Stage 3)`,IND,y);y+=26;}
+      ctx.fillStyle='#44cccc';ctx.font='26px monospace';
+      ctx.fillText(`V rot angle: ${rotAngle3D(s1Data.svd.V).toFixed(1)}°  (Stage 1)`,IND,y);y+=31;
+      ctx.fillText(`U rot angle: ${rotAngle2D(s1Data.svd.U).toFixed(1)}°  (Stage 3)`,IND,y);y+=31;}
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 29px monospace';ctx.fillText('Legend',IND,y);y+=34;
+      ctx.font='26px monospace';
       for(const[col,lbl] of[
         ['#00eeff','Original 3D points (ghost)'],
         ['#ff7722','Projected points'],
@@ -524,20 +524,20 @@ function updatePanel(){
         ['#4466ff','Image plane (SVD null space)'],
         [SV_COLORS[0],'v₁ — 1st right singular vec (σ₁)'],
         [SV_COLORS[1],'v₂ — 2nd right singular vec (σ₂)'],
-      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=26;}
     }
     // ── Mode 2: 3×2 matrix + legend ─────────────────────────────────────────
     if(scenarioMode===2&&s2Data){
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Matrix A (3×2):  R² → R³',IND,y);y+=26;
-      ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('A =',IND,y);
-      for(let r=0;r<3;r++){const row=s2Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
-      y+=3*29+10;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
-      for(const line of['Stage 1: rotate by V (2×2 right sing vecs)','Stage 2: Σ stretching (σ₁, σ₂)','Stage 3: U lifts into 3D']){ctx.fillText(line,IND,y);y+=28;}
-      y+=4;y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=30;
-      ctx.fillStyle='#cccccc';ctx.font='24px monospace';
-      ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
+      ctx.fillStyle='#88bbff';ctx.font='bold 29px monospace';ctx.fillText('Matrix A (3×2):  R² → R³',IND,y);y+=31;
+      ctx.fillStyle='#bbccee';ctx.font='29px monospace';ctx.fillText('A =',IND,y);
+      for(let r=0;r<3;r++){const row=s2Data.A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+72,y+r*35);}
+      y+=3*35+12;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#bbccee';ctx.font='29px monospace';
+      for(const line of['Stage 1: rotate by V (2×2 right sing vecs)','Stage 2: Σ stretching (σ₁, σ₂)','Stage 3: U lifts into 3D']){ctx.fillText(line,IND,y);y+=34;}
+      y+=5;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#88bbff';ctx.font='bold 31px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=36;
+      ctx.fillStyle='#cccccc';ctx.font='29px monospace';
+      ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=34;
       {const[xU,xS,xV]=svdColX(W,IND);
       const sig=s2Data.svd.s;
       const Sigma2=[[sig[0],0],[0,sig[1]],[0,0]];
@@ -546,12 +546,12 @@ function updatePanel(){
       panelMatBlock(ctx,'Σ (3×2)',Sigma2,xS,y,'#ffdd55');
       const hV=panelMatBlock(ctx,'Vᵀ (2×2)',Vt2,xV,y,'#cc88ff');
       y+=Math.max(hU,hV)+6;
-      ctx.fillStyle='#44cccc';ctx.font='22px monospace';
-      ctx.fillText(`V rot angle: ${rotAngle2D(s2Data.svd.V).toFixed(1)}°  (Stage 1)`,IND,y);y+=26;
-      ctx.fillText(`U rot angle: ${rotAngle3D(s2Data.svd.U).toFixed(1)}°  (Stage 3)`,IND,y);y+=26;}
+      ctx.fillStyle='#44cccc';ctx.font='26px monospace';
+      ctx.fillText(`V rot angle: ${rotAngle2D(s2Data.svd.V).toFixed(1)}°  (Stage 1)`,IND,y);y+=31;
+      ctx.fillText(`U rot angle: ${rotAngle3D(s2Data.svd.U).toFixed(1)}°  (Stage 3)`,IND,y);y+=31;}
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 29px monospace';ctx.fillText('Legend',IND,y);y+=34;
+      ctx.font='26px monospace';
       for(const[col,lbl] of[
         ['#00eeff','Original 2D input points (ghost)'],
         ['#ff7722','Lifted / transformed points'],
@@ -560,28 +560,28 @@ function updatePanel(){
         ['#ff4422','Input domain plane (z = 0)'],
         [SV_COLORS[0],'u₁ — 1st left singular vec (σ₁)'],
         [SV_COLORS[1],'u₂ — 2nd left singular vec (σ₂)'],
-      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=26;}
     }
     // ── Mode 3: covariance / eigenvalues / variance + legend ─────────────────
     if(scenarioMode===3&&s3Data){
       const{Cov,evals}=s3Data.pca;
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Covariance matrix (normalized):',IND,y);y+=26;
-      ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('Cov =',IND,y);
-      for(let r=0;r<3;r++){const row=Cov[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+72,y+r*28);}
-      y+=3*28+10;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#88bbff';ctx.font='bold 29px monospace';ctx.fillText('Covariance matrix (normalized):',IND,y);y+=31;
+      ctx.fillStyle='#bbccee';ctx.font='29px monospace';ctx.fillText('Cov =',IND,y);
+      for(let r=0;r<3;r++){const row=Cov[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+86,y+r*34);}
+      y+=3*34+12;y=divider(ctx,y,W,IND);
       const tot=evals[0]+evals[1]+evals[2]||1;
-      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('Eigenvalues:',IND,y);y+=30;
-      ctx.fillStyle='#cccccc';ctx.font='24px monospace';
-      ctx.fillText(`λ₁=${evals[0].toFixed(3)},  λ₂=${evals[1].toFixed(3)},  λ₃=${evals[2].toFixed(3)}`,IND,y);y+=28;
+      ctx.fillStyle='#88bbff';ctx.font='bold 31px monospace';ctx.fillText('Eigenvalues:',IND,y);y+=36;
+      ctx.fillStyle='#cccccc';ctx.font='29px monospace';
+      ctx.fillText(`λ₁=${evals[0].toFixed(3)},  λ₂=${evals[1].toFixed(3)},  λ₃=${evals[2].toFixed(3)}`,IND,y);y+=34;
       ctx.fillStyle='#ffffaa';
-      ctx.fillText(`Var 2D = ${((evals[0]+evals[1])/tot*100).toFixed(1)}%  (PC1+PC2)`,IND,y);y+=28;
-      ctx.fillText(`Var 1D = ${(evals[0]/tot*100).toFixed(1)}%  (PC1 only)`,IND,y);y+=32;
+      ctx.fillText(`Var 2D = ${((evals[0]+evals[1])/tot*100).toFixed(1)}%  (PC1+PC2)`,IND,y);y+=34;
+      ctx.fillText(`Var 1D = ${(evals[0]/tot*100).toFixed(1)}%  (PC1 only)`,IND,y);y+=38;
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
-      for(const line of['Stage 1: align to PC axes','Stage 2: project to PC1-PC2 plane','Stage 3: project to PC1 line']){ctx.fillText(line,IND,y);y+=28;}
+      ctx.fillStyle='#bbccee';ctx.font='29px monospace';
+      for(const line of['Stage 1: align to PC axes','Stage 2: project to PC1-PC2 plane','Stage 3: project to PC1 line']){ctx.fillText(line,IND,y);y+=34;}
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 29px monospace';ctx.fillText('Legend',IND,y);y+=34;
+      ctx.font='26px monospace';
       for(const[col,lbl] of[
         ['#00eeff','Original 3D cloud (ghost)'],
         ['#ff7722','Aligned / projected points'],
@@ -590,30 +590,29 @@ function updatePanel(){
         ['#ff4444','PC1 — largest variance axis'],
         ['#44ff88','PC2 — 2nd variance axis'],
         ['#4488ff','PC3 — smallest variance axis'],
-      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=26;}
     }
     // ── Mode 4: LSE staged + legend ──────────────────────────────────────────
     if(scenarioMode===4&&s4Data){
       const cnt=s4Data.planeCount;
       const lseCur=[s4Data.lse3,s4Data.lse4,s4Data.lse5][cnt-3];
       const nPlanes=cnt;
-      ctx.fillStyle='#bbccee';ctx.font='24px monospace';
-      ctx.fillText(`${nPlanes} planes active`,IND,y);y+=28;
-      ctx.fillText('LS minimizes \u03a3(dist\u00b2 to planes)',IND,y);y+=28;
-      ctx.fillText('R-trig: add plane   L-trig: remove',IND,y);y+=28;
-      y+=4;y=divider(ctx,y,W,IND);
+      ctx.fillStyle='#bbccee';ctx.font='29px monospace';
+      ctx.fillText(`${nPlanes} planes active`,IND,y);y+=34;
+      ctx.fillText('LS minimizes \u03a3(dist\u00b2 to planes)',IND,y);y+=34;
+      y+=5;y=divider(ctx,y,W,IND);
       const x=lseCur.xLS;
-      ctx.fillStyle='#88bbff';ctx.font='bold 26px monospace';ctx.fillText('LS Solution:',IND,y);y+=30;
-      ctx.fillStyle='#ffdd55';ctx.font='24px monospace';
-      ctx.fillText(`x=${x[0].toFixed(3)}, y=${x[1].toFixed(3)}, z=${x[2].toFixed(3)}`,IND,y);y+=28;
+      ctx.fillStyle='#88bbff';ctx.font='bold 31px monospace';ctx.fillText('LS Solution:',IND,y);y+=36;
+      ctx.fillStyle='#ffdd55';ctx.font='29px monospace';
+      ctx.fillText(`x=${x[0].toFixed(3)}, y=${x[1].toFixed(3)}, z=${x[2].toFixed(3)}`,IND,y);y+=34;
       ctx.fillStyle='#cccccc';
-      ctx.fillText(`Residuals: ${lseCur.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=28;
+      ctx.fillText(`Residuals: ${lseCur.dists.map(d=>d.toFixed(3)).join(', ')}`,IND,y);y+=34;
       const rms4=Math.sqrt(lseCur.dists.reduce((s,d)=>s+d*d,0)/lseCur.dists.length);
-      ctx.fillStyle='#ff8844';ctx.font='bold 24px monospace';
-      ctx.fillText(`RMS Error: ${rms4.toFixed(4)}`,IND,y);y+=32;
+      ctx.fillStyle='#ff8844';ctx.font='bold 29px monospace';
+      ctx.fillText(`RMS Error: ${rms4.toFixed(4)}`,IND,y);y+=38;
       y=divider(ctx,y,W,IND);
-      ctx.fillStyle='#88bbff';ctx.font='bold 24px monospace';ctx.fillText('Legend',IND,y);y+=28;
-      ctx.font='22px monospace';
+      ctx.fillStyle='#88bbff';ctx.font='bold 29px monospace';ctx.fillText('Legend',IND,y);y+=34;
+      ctx.font='26px monospace';
       for(const[col,lbl] of[
         ['#ffffcc','LS solution (animated sphere)'],
         ['#aaaaaa','Residual lines to planes'],
@@ -623,92 +622,120 @@ function updatePanel(){
         ['#ffaa22','Plane 4:  x \u2212 2z = \u22122  (stage 1+)'],
         ['#ff44ff','Plane 5:  2x + y = 4  (stage 2)'],
         ['#dddddd','Scene bounds (white cube)'],
-      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=22;}
+      ]){swatch(ctx,IND,y,col,18,14);ctx.fillStyle='#cccccc';ctx.fillText(lbl,IND+26,y);y+=26;}
     }
     y=divider(ctx,y,W,IND);
-    ctx.fillStyle='#7799ff';ctx.font='bold 24px monospace';ctx.fillText('VR Controls',IND,y);y+=28;
-    ctx.font='21px monospace';
+    ctx.fillStyle='#7799ff';ctx.font='bold 29px monospace';ctx.fillText('VR Controls',IND,y);y+=34;
+    ctx.font='25px monospace';
     const c2='#88aadd';
-    for(const[dot,key,desc2] of[
-      ['#ffdd55','R trigger','→ advance t (0→3)'],['#ffdd55','L trigger','→ reverse t (3→0)'],
-      ['#ff8844','R grip','→ cycle 3×3 matrix'],['#44ffcc','L stick ←→','→ cycle scenario mode'],
-      ['#44ffaa','L stick click','→ teleport'],['#44ffaa','R stick Y','→ zoom'],
-      ['#ff88ff','A button','→ grab/rotate/throw'],['#ffaa44','B button (mode 4)','→ plane editor'],
-      ['#aaaaaa','S key','→ cycle scenario (desktop)'],
-    ]){
-      ctx.fillStyle=dot;ctx.fillRect(IND,y-12,10,14);
-      ctx.fillStyle='#ffffff';ctx.fillText(key,IND+16,y);
-      ctx.fillStyle=c2;ctx.fillText(desc2,IND+170,y);y+=24;
+    const _ctrlCommon=[
+      ['#44ffcc','L stick ←→','→ cycle scenario'],
+      ['#44ffaa','L stick click','→ teleport'],
+      ['#44ffaa','R stick Y','→ zoom'],
+      ['#aaaaaa','S key','→ cycle (desktop)'],
+    ];
+    let _vrRows=[];
+    if(scenarioMode===1||scenarioMode===2){
+      _vrRows=[
+        ['#ffdd55','R trigger','→ advance t (0→3)'],
+        ['#ffdd55','L trigger','→ reverse t (3→0)'],
+        ['#ffaa44','B button','→ matrix editor'],
+        ['#ff88ff','A button','→ grab / throw scene'],
+        ..._ctrlCommon,
+      ];
+    } else if(scenarioMode===3){
+      _vrRows=[
+        ['#ffdd55','R trigger','→ advance t (0→3)'],
+        ['#ffdd55','L trigger','→ reverse t (3→0)'],
+        ['#bbff44','X btn (L)','→ enter / exit grab mode'],
+        ['#ff8844','R grip','→ grab / drag point (grab mode)'],
+        ['#ff88ff','A button','→ grab / throw scene'],
+        ..._ctrlCommon,
+      ];
+    } else if(scenarioMode===4){
+      _vrRows=[
+        ['#ffdd55','R trigger','→ add plane'],
+        ['#ffdd55','L trigger','→ remove plane'],
+        ['#bbff44','X btn (L)','→ enter / exit grab mode'],
+        ['#ff8844','R grip','→ grab / drag plane (grab mode)'],
+        ['#ffaa44','B button','→ plane equation editor'],
+        ['#ff88ff','A button','→ grab / throw scene'],
+        ..._ctrlCommon,
+      ];
+    }
+    for(const[dot,key,desc2] of _vrRows){
+      ctx.fillStyle=dot;ctx.fillRect(IND,y-15,10,18);
+      ctx.fillStyle='#ffffff';ctx.fillText(key,IND+18,y);
+      ctx.fillStyle=c2;ctx.fillText(desc2,IND+250,y);y+=29;
     }
     panelTex.needsUpdate=true;return;
   }
 
   const preset=PRESETS[presetIdx];const A=mat0Custom;const svd=currentSVD;
-  ctx.fillStyle='#7799ff';ctx.font='bold 42px monospace';ctx.fillText('3×3 SVD Transform',IND,y);y+=42;
-  ctx.fillStyle='#88aadd';ctx.font='bold 26px monospace';ctx.fillText(`Preset: ${preset.name}`,IND,y);y+=30;
-  ctx.fillStyle='#bbccee';ctx.font='24px monospace';ctx.fillText('A =',IND,y);
-  for(let r=0;r<3;r++){const row=A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+60,y+r*29);}
-  y+=3*29+8;y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#ffdd55';ctx.font='bold 30px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
-  ctx.fillStyle='#aaaaaa';ctx.font='26px monospace';ctx.fillText(stageName(tParam),IND+148,y);y+=38;
+  ctx.fillStyle='#7799ff';ctx.font='bold 50px monospace';ctx.fillText('3×3 SVD Transform',IND,y);y+=50;
+  ctx.fillStyle='#88aadd';ctx.font='bold 31px monospace';ctx.fillText(`Preset: ${preset.name}`,IND,y);y+=36;
+  ctx.fillStyle='#bbccee';ctx.font='29px monospace';ctx.fillText('A =',IND,y);
+  for(let r=0;r<3;r++){const row=A[r].map(v=>String(v.toFixed(2)).padStart(6));ctx.fillText(`[ ${row.join('  ')} ]`,IND+72,y+r*35);}
+  y+=3*35+10;y=divider(ctx,y,W,IND);
+  ctx.fillStyle='#ffdd55';ctx.font='bold 36px monospace';ctx.fillText(`t = ${tParam.toFixed(2)}`,IND,y);
+  ctx.fillStyle='#aaaaaa';ctx.font='31px monospace';ctx.fillText(stageName(tParam),IND+178,y);y+=46;
   y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#88bbff';ctx.font='bold 28px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=34;
+  ctx.fillStyle='#88bbff';ctx.font='bold 34px monospace';ctx.fillText('SVD:  A = U · Σ · Vᵀ',IND,y);y+=41;
   if(svd){
     const sv=[svd.Sigma[0][0],svd.Sigma[1][1],svd.Sigma[2][2]];
-    ctx.fillStyle='#cccccc';ctx.font='24px monospace';
-    ctx.fillText(`σ = [ ${sv.map(s=>s.toFixed(3)).join(',  ')} ]`,IND,y);y+=30;
+    ctx.fillStyle='#cccccc';ctx.font='29px monospace';
+    ctx.fillText(`σ = [ ${sv.map(s=>s.toFixed(3)).join(',  ')} ]`,IND,y);y+=36;
     const[xU,xS,xV]=svdColX(W,IND);
     const Vt=svd.V[0].map((_,c)=>svd.V.map(r=>r[c]));
     const hU=panelMatBlock(ctx,'U (3×3)',svd.U,xU,y,'#44cccc');
     panelMatBlock(ctx,'Σ (3×3)',svd.Sigma,xS,y,'#ffdd55');
     panelMatBlock(ctx,'Vᵀ (3×3)',Vt,xV,y,'#cc88ff');
     y+=hU+6;
-    ctx.fillStyle='#44cccc';ctx.font='22px monospace';
-    ctx.fillText(`V rot angle: ${rotAngle3D(svd.V).toFixed(1)}°  (Stage 1)`,IND,y);y+=26;
-    ctx.fillText(`U rot angle: ${rotAngle3D(svd.U).toFixed(1)}°  (Stage 3)`,IND,y);y+=26;
+    ctx.fillStyle='#44cccc';ctx.font='26px monospace';
+    ctx.fillText(`V rot angle: ${rotAngle3D(svd.V).toFixed(1)}°  (Stage 1)`,IND,y);y+=31;
+    ctx.fillText(`U rot angle: ${rotAngle3D(svd.U).toFixed(1)}°  (Stage 3)`,IND,y);y+=31;
   }
   y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#88bbff';ctx.font='bold 28px monospace';ctx.fillText('Legend',IND,y);y+=32;
-  ctx.font='23px monospace';
+  ctx.fillStyle='#88bbff';ctx.font='bold 34px monospace';ctx.fillText('Legend',IND,y);y+=38;
+  ctx.font='28px monospace';
   for(const[col,label] of[['#ff4444','X axis →'],['#44ff44','Y axis ↑'],['#4488ff','Z axis ·']]){
-    swatch(ctx,IND,y,col);ctx.fillStyle='#cccccc';ctx.fillText(label,IND+30,y);y+=27;
+    swatch(ctx,IND,y,col);ctx.fillStyle='#cccccc';ctx.fillText(label,IND+30,y);y+=32;
   }
-  y+=4;
+  y+=5;
   const sv2=currentSVD?[currentSVD.Sigma[0][0],currentSVD.Sigma[1][1],currentSVD.Sigma[2][2]]:[1,1,1];
   for(let i=0;i<3;i++){
     swatch(ctx,IND,y,SV_COLORS[i]);
     ctx.fillStyle=SV_COLORS[i];ctx.fillText(`v${i+1}`,IND+30,y);
-    ctx.fillStyle='#cccccc';ctx.fillText(`right singular vec  σ${i+1}=${sv2[i].toFixed(3)}`,IND+72,y);y+=27;
+    ctx.fillStyle='#cccccc';ctx.fillText(`right singular vec  σ${i+1}=${sv2[i].toFixed(3)}`,IND+86,y);y+=32;
   }
-  y+=4;
+  y+=5;
   ctx.setLineDash([8,5]);
-  ctx.strokeStyle='#aa55ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+22,y-8);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='#cc88ff';ctx.font='23px monospace';ctx.fillText('V rotation axis (stage 1)',IND+30,y);y+=27;
+  ctx.strokeStyle='#aa55ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+26,y-8);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#cc88ff';ctx.font='28px monospace';ctx.fillText('V rotation axis (stage 1)',IND+34,y);y+=32;
   ctx.setLineDash([8,5]);
-  ctx.strokeStyle='#00cccc';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+22,y-8);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='#44cccc';ctx.fillText('U rotation axis (stage 3)',IND+30,y);y+=32;
+  ctx.strokeStyle='#00cccc';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(IND,y-8);ctx.lineTo(IND+26,y-8);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#44cccc';ctx.fillText('U rotation axis (stage 3)',IND+34,y);y+=38;
   y=divider(ctx,y,W,IND);
-  ctx.fillStyle='#7799ff';ctx.font='bold 24px monospace';
-  ctx.fillText('VR Controls',IND,y);y+=28;
-  ctx.font='21px monospace';
+  ctx.fillStyle='#7799ff';ctx.font='bold 29px monospace';
+  ctx.fillText('VR Controls',IND,y);y+=34;
+  ctx.font='25px monospace';
   const ctrl2col='#88aadd';
   const ctrlRows=[
     ['#ffdd55','R trigger','→ advance t (0→3)'],
     ['#ffdd55','L trigger','→ reverse t (3→0)'],
     ['#ff8844','R grip','→ cycle matrix preset'],
+    ['#ffaa44','B button','→ matrix editor'],
+    ['#ff88ff','A button','→ grab / throw scene'],
+    ['#44ffcc','L stick ←→','→ cycle scenario'],
     ['#44ffaa','L stick click','→ teleport'],
-    ['#44ffaa','R stick Y','→ zoom in / out (0.1× – 2×)'],
-    ['#ff88ff','A button','→ grab space: drag + rotate'],
-    ['#ff88ff','A release','→ throw (momentum carry)'],
-    ['#ffaa44','B button (mode 4)','→ open plane equation editor'],
-    ['#44ffcc','L stick ←→','→ right=next / left=prev scenario'],
-    ['#aaaaaa','S key','→ cycle scenario (desktop)'],
+    ['#44ffaa','R stick Y','→ zoom'],
+    ['#aaaaaa','S key','→ cycle (desktop)'],
   ];
   for(const[dot,key,desc] of ctrlRows){
-    ctx.fillStyle=dot;ctx.fillRect(IND,y-12,10,14);
-    ctx.fillStyle='#ffffff';ctx.fillText(key,IND+16,y);
-    ctx.fillStyle=ctrl2col;ctx.fillText(desc,IND+170,y);
-    y+=24;
+    ctx.fillStyle=dot;ctx.fillRect(IND,y-15,10,18);
+    ctx.fillStyle='#ffffff';ctx.fillText(key,IND+18,y);
+    ctx.fillStyle=ctrl2col;ctx.fillText(desc,IND+250,y);
+    y+=29;
   }
   panelTex.needsUpdate=true;
 }
@@ -931,9 +958,9 @@ function drawEditPanel(){
 
 // ─── Shared helper: draw a labeled matrix block on a panel canvas ─────────────
 function panelMatBlock(ctx,label,m,bx,by,color){
-  const RH=25,FSV=19;
-  ctx.fillStyle=color;ctx.font='bold 21px monospace';ctx.fillText(label,bx,by);
-  let ly=by+27;
+  const RH=30,FSV=23;
+  ctx.fillStyle=color;ctx.font='bold 25px monospace';ctx.fillText(label,bx,by);
+  let ly=by+32;
   ctx.font=`${FSV}px monospace`;
   for(let r=0;r<m.length;r++){
     const entries=m[r].map(v=>v.toFixed(2).padStart(6));
