@@ -235,6 +235,12 @@ const PRESETS=[
   {name:'Rotation+Scale',A:(()=>{const c=Math.cos(Math.PI/5),s=Math.sin(Math.PI/5);return mul([[c,-s,0],[s,c,0],[0,0,1]],[[1.8,0,0],[0,0.7,0],[0,0,1.2]]);})()},
   {name:'Shear+Scale',   A:[[1.5,0.8,0.2],[0.0,1.0,0.5],[0.1,0.0,0.6]]},
 ];
+function deepCopy2D(m){return m.map(r=>[...r]);}
+const MAT1_DEFAULT=[[1,2,0],[0,1,-1]];
+const MAT2_DEFAULT=[[1,2],[0,1],[-1,0]];
+let mat0Custom=deepCopy2D(PRESETS[0].A);
+let mat1Custom=deepCopy2D(MAT1_DEFAULT);
+let mat2Custom=deepCopy2D(MAT2_DEFAULT);
 
 // ─── Point cloud & cube helpers ───────────────────────────────────────────────
 
@@ -463,6 +469,7 @@ function divider(ctx,y,W,IND){
 function swatch(ctx,x,y,color,w=22,h=16){ctx.fillStyle=color;ctx.fillRect(x,y-13,w,h);}
 
 function updatePanel(){
+  if(matrixEditMode&&scenarioMode<3){drawMatrixEditPanel();return;}
   if(planeEditMode&&scenarioMode===4){drawEditPanel();return;}
   const ctx=panelCtx,W=PANEL_W,H=PANEL_H;
   ctx.clearRect(0,0,W,H);
@@ -788,6 +795,8 @@ function updateWristHUD(){
 
 let planeEditMode=false,planeEditRow=0,planeEditCol=0;
 let editPrevStickX=false,editPrevStickY=false,editPrevLGrip=false;
+let matrixEditMode=false,matEditRow=0,matEditCol=0;
+let matEditPrevStickX=false,matEditPrevStickY=false,matEditPrevLGrip=false;
 
 // ─── Plane grab mode (VR, mode 4) ─────────────────────────────────────────────
 let vrGrabMode=false,prevXBtn=false;
@@ -883,6 +892,100 @@ function drawEditPanel(){
     ['#ffaa44','L stick \u2190\u2192','  select A / B / C / D column'],
     ['#ffaa44','L grip',  '  cycle to next plane (P1\u2192P5)'],
     ['#ff88ff','B button','  exit editor'],
+  ]){
+    ctx.fillStyle=dot;ctx.fillRect(IND,y-16,10,18);
+    ctx.fillStyle='#ffffff';ctx.fillText(key,IND+18,y);
+    ctx.fillStyle='#88aadd';ctx.fillText(desc,IND+290,y);y+=28;
+  }
+  panelTex.needsUpdate=true;
+}
+
+// ─── Matrix editor panel (VR, modes 0-2) ──────────────────────────────────────
+
+function drawMatrixEditPanel(){
+  const ctx=panelCtx,W=PANEL_W,H=PANEL_H,IND=30;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='rgba(8,8,24,0.97)';drawRoundRect(ctx,0,0,W,H,28);ctx.fill();
+  ctx.strokeStyle='rgba(80,160,255,0.65)';ctx.lineWidth=3;drawRoundRect(ctx,2,2,W-4,H-4,28);ctx.stroke();
+  let y=56;
+  const titles=['MATRIX EDITOR  3×3','MATRIX EDITOR  2×3','MATRIX EDITOR  3×2'];
+  ctx.fillStyle='#aaddff';ctx.font='bold 42px monospace';ctx.fillText(titles[scenarioMode],IND,y);y+=50;
+  const mat=scenarioMode===0?mat0Custom:scenarioMode===1?mat1Custom:mat2Custom;
+  const nRows=mat.length,nCols=mat[0].length;
+  // Column headers
+  const CX=[190,435,680];
+  ctx.fillStyle='#aaaaaa';ctx.font='bold 22px monospace';
+  ctx.fillText('row',IND,y);
+  for(let c=0;c<nCols;c++)ctx.fillText(`col ${c}`,CX[c],y);
+  y+=8;y=divider(ctx,y,W,IND);
+  // Matrix rows
+  for(let r=0;r<nRows;r++){
+    const selRow=r===matEditRow;
+    if(selRow){ctx.fillStyle='rgba(80,160,255,0.12)';ctx.fillRect(IND-6,y-26,W-IND,42);}
+    ctx.fillStyle=selRow?'#aaddff':'#445566';ctx.font='bold 26px monospace';ctx.fillText(selRow?'▶':' ',IND,y);
+    ctx.fillStyle='#bbccee';ctx.font='bold 26px monospace';ctx.fillText(`r${r}`,IND+28,y);
+    for(let c=0;c<nCols;c++){
+      const selCell=selRow&&c===matEditCol;
+      const str=mat[r][c].toFixed(2);
+      if(selCell){
+        const tw=ctx.measureText(str).width;
+        ctx.fillStyle='rgba(80,200,255,0.28)';ctx.fillRect(CX[c]-7,y-24,tw+14,32);
+        ctx.fillStyle='#44eeff';ctx.font='bold 26px monospace';
+      } else {
+        ctx.fillStyle=selRow?'#cccccc':'#778899';ctx.font='26px monospace';
+      }
+      ctx.fillText(str,CX[c],y);
+    }
+    y+=42;
+  }
+  y+=6;y=divider(ctx,y,W,IND);
+  // SVD decomposition
+  ctx.fillStyle='#88bbff';ctx.font='bold 22px monospace';ctx.fillText('SVD decomposition:',IND,y);y+=30;
+  ctx.font='20px monospace';
+  if(scenarioMode===0&&currentSVD){
+    const sv=[currentSVD.Sigma[0][0],currentSVD.Sigma[1][1],currentSVD.Sigma[2][2]];
+    ctx.fillStyle='#cccccc';ctx.fillText(`Σ = diag( ${sv.map(s=>s.toFixed(3)).join(',  ')} )`,IND,y);y+=28;
+    const{axis:aV,angle:thV}=axisAngle(currentSVD.V);
+    ctx.fillStyle='#cc88ff';ctx.fillText(`V: ${(thV*180/Math.PI).toFixed(1)}°  axis=(${aV.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=28;
+    const{axis:aU,angle:thU}=axisAngle(currentSVD.U);
+    ctx.fillStyle='#44cccc';ctx.fillText(`U: ${(thU*180/Math.PI).toFixed(1)}°  axis=(${aU.map(x=>x.toFixed(2)).join(', ')})`,IND,y);y+=28;
+  } else if(scenarioMode===1&&s1Data){
+    ctx.fillStyle='#cccccc';ctx.fillText(`σ₁=${s1Data.svd.s[0].toFixed(3)},  σ₂=${s1Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
+    ctx.fillStyle='#cc88ff';ctx.font='bold 20px monospace';ctx.fillText('V columns (right sing vecs, 3D):',IND,y);y+=26;
+    ctx.font='20px monospace';
+    for(let i=0;i<2;i++){
+      const V=s1Data.svd.V;
+      ctx.fillStyle='#cc88ff';ctx.fillText(`v${i+1}=(${[V[0][i],V[1][i],V[2][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
+    }
+    ctx.fillStyle='#44cccc';ctx.font='bold 20px monospace';ctx.fillText('U columns (left sing vecs, 2D):',IND,y);y+=26;
+    ctx.font='20px monospace';
+    for(let i=0;i<2;i++){
+      const U=s1Data.svd.U;
+      ctx.fillStyle='#44cccc';ctx.fillText(`u${i+1}=(${[U[0][i],U[1][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
+    }
+  } else if(scenarioMode===2&&s2Data){
+    ctx.fillStyle='#cccccc';ctx.fillText(`σ₁=${s2Data.svd.s[0].toFixed(3)},  σ₂=${s2Data.svd.s[1].toFixed(3)}`,IND,y);y+=28;
+    ctx.fillStyle='#44cccc';ctx.font='bold 20px monospace';ctx.fillText('U columns (left sing vecs, 3D):',IND,y);y+=26;
+    ctx.font='20px monospace';
+    for(let i=0;i<2;i++){
+      const U=s2Data.svd.U;
+      ctx.fillStyle='#44cccc';ctx.fillText(`u${i+1}=(${[U[0][i],U[1][i],U[2][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
+    }
+    ctx.fillStyle='#cc88ff';ctx.font='bold 20px monospace';ctx.fillText('V columns (right sing vecs, 2D):',IND,y);y+=26;
+    ctx.font='20px monospace';
+    for(let i=0;i<2;i++){
+      const V=s2Data.svd.V;
+      ctx.fillStyle='#cc88ff';ctx.fillText(`v${i+1}=(${[V[0][i],V[1][i]].map(x=>x.toFixed(3)).join(', ')})`,IND,y);y+=26;
+    }
+  }
+  y+=6;y=divider(ctx,y,W,IND);
+  ctx.fillStyle='#aaddff';ctx.font='bold 24px monospace';ctx.fillText('Controls',IND,y);y+=32;
+  ctx.font='21px monospace';
+  for(const[dot,key,desc] of[
+    ['#aaddff','L stick ↑↓','  +0.1 / −0.1 on selected value'],
+    ['#aaddff','L stick ←→','  select column'],
+    ['#aaddff','L grip',    '  cycle to next row'],
+    ['#ff88ff','B button',  '  exit editor'],
   ]){
     ctx.fillStyle=dot;ctx.fillRect(IND,y-16,10,18);
     ctx.fillStyle='#ffffff';ctx.fillText(key,IND+18,y);
@@ -1132,7 +1235,7 @@ function rebuildScene(speak=false){
   const presetLbl=makeLabel(`Preset: ${PRESETS[presetIdx].name}`,'#aabbdd');
   presetLbl.position.set(0,2.38,0);root.add(presetLbl);
 
-  const A=PRESETS[presetIdx].A;
+  const A=mat0Custom;
   currentSVD=makeRotationalSVD(A);
   points=genPoints(30,42);
   cubeCorners=buildCubeCorners(points);
@@ -1261,7 +1364,7 @@ function sceneCommon(speak,name){
 
 function buildScenario1(speak){
   sceneCommon(speak,SCENARIO_NAMES[1]);
-  const A=[[1,2,0],[0,1,-1]],svd=svd2x3(A);
+  const A=mat1Custom,svd=svd2x3(A);
   const pts=genPoints(30,7);
   const V=svd.V;
   // Image plane: normal = V[:,2] (third right singular vector)
@@ -1300,7 +1403,7 @@ function updateScenario1(){
 
 function buildScenario2(speak){
   sceneCommon(speak,SCENARIO_NAMES[2]);
-  const A=[[1,2],[0,1],[-1,0]],svd=svd3x2(A);
+  const A=mat2Custom,svd=svd3x2(A);
   const pts2d=genPoints2D(30,7);
   const pts3d=pts2d.map(p=>[p[0],p[1],0]);
   // Domain plane (xy, z=0)
@@ -1644,13 +1747,13 @@ let s4PrevRightTrig=false,s4PrevLeftTrig=false;
 const keys={};
 window.addEventListener('keydown',e=>{
   keys[e.key]=true;
-  if(e.key==='1'){presetIdx=0;tParam=0;rebuildScene(true);}
-  if(e.key==='2'){presetIdx=1;tParam=0;rebuildScene(true);}
-  if(e.key==='3'){presetIdx=2;tParam=0;rebuildScene(true);}
-  if(e.key.toLowerCase()==='g'){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
+  if(e.key==='1'){presetIdx=0;tParam=0;mat0Custom=deepCopy2D(PRESETS[0].A);rebuildScene(true);}
+  if(e.key==='2'){presetIdx=1;tParam=0;mat0Custom=deepCopy2D(PRESETS[1].A);rebuildScene(true);}
+  if(e.key==='3'){presetIdx=2;tParam=0;mat0Custom=deepCopy2D(PRESETS[2].A);rebuildScene(true);}
+  if(e.key.toLowerCase()==='g'){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;mat0Custom=deepCopy2D(PRESETS[presetIdx].A);rebuildScene(true);}
   if(e.key==='='||e.key==='+'){rootScale=Math.min(2.0,rootScale+0.1);root.scale.setScalar(rootScale);updateHUD();}
   if(e.key==='-'){rootScale=Math.max(0.1,rootScale-0.1);root.scale.setScalar(rootScale);updateHUD();}
-  if(e.key.toLowerCase()==='s'){scenarioMode=(scenarioMode+1)%5;planeEditMode=false;tParam=0;rebuildScene(true);}
+  if(e.key.toLowerCase()==='s'){scenarioMode=(scenarioMode+1)%5;planeEditMode=false;matrixEditMode=false;mat0Custom=deepCopy2D(PRESETS[presetIdx].A);mat1Custom=deepCopy2D(MAT1_DEFAULT);mat2Custom=deepCopy2D(MAT2_DEFAULT);tParam=0;rebuildScene(true);}
   // Mode 4 discrete plane add/remove via arrow keys
   if(e.key==='ArrowRight'&&scenarioMode===4&&s4Data&&s4Data.planeCount<5){
     s4Data.animFrom=s4Data.lsSphere.position.toArray();
@@ -1774,7 +1877,7 @@ renderer.setAnimationLoop(()=>{
               if(trigger){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
             }
           }
-          if(grip&&!prevGripPressed&&!vrGrabMode){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;rebuildScene(true);}
+          if(grip&&!prevGripPressed&&!vrGrabMode){presetIdx=(presetIdx+1)%PRESETS.length;tParam=0;mat0Custom=deepCopy2D(PRESETS[presetIdx].A);rebuildScene(true);}
           prevGripPressed=grip;
           // Right thumbstick Y → zoom
           const stickY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
@@ -1808,12 +1911,11 @@ renderer.setAnimationLoop(()=>{
             grabActive=false; // release — throwVel carries the momentum
           }
           prevAPressed=aBtn;
-          // B button → toggle plane editor (mode 4 only)
+          // B button → toggle matrix editor (modes 0-2) or plane editor (mode 4)
           const bBtn=src.gamepad.buttons[5]?.pressed??false;
-          if(bBtn&&!prevBPressed&&scenarioMode===4){
-            planeEditMode=!planeEditMode;
-            triggerHaptics(0.4,100);
-            updatePanel();updateHUD();updateWristHUD();
+          if(bBtn&&!prevBPressed){
+            if(scenarioMode===4){planeEditMode=!planeEditMode;triggerHaptics(0.4,100);updatePanel();updateHUD();updateWristHUD();}
+            else if(scenarioMode<3){matrixEditMode=!matrixEditMode;if(matrixEditMode){matEditRow=0;matEditCol=0;}triggerHaptics(0.4,100);updatePanel();updateHUD();updateWristHUD();}
           }
           prevBPressed=bBtn;
         }
@@ -1847,6 +1949,30 @@ renderer.setAnimationLoop(()=>{
               editPrevLGrip=true;triggerHaptics(0.3,60);
               updatePanel();updateWristHUD();
             } else if(!grip) editPrevLGrip=false;
+          } else if(matrixEditMode&&scenarioMode<3){
+            // ── Matrix editor controls ─────────────────────────────────────────
+            const lsX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
+            const lsY=src.gamepad.axes[3]??src.gamepad.axes[1]??0;
+            const matRows=scenarioMode===1?2:3,matCols=scenarioMode===2?2:3;
+            const mat=scenarioMode===0?mat0Custom:scenarioMode===1?mat1Custom:mat2Custom;
+            // Left/right → select column
+            if(lsX>0.5&&!matEditPrevStickX){
+              matEditCol=(matEditCol+1)%matCols;matEditPrevStickX=true;triggerHaptics(0.25,50);updatePanel();updateWristHUD();
+            } else if(lsX<-0.5&&!matEditPrevStickX){
+              matEditCol=(matEditCol+matCols-1)%matCols;matEditPrevStickX=true;triggerHaptics(0.25,50);updatePanel();updateWristHUD();
+            } else if(Math.abs(lsX)<0.3) matEditPrevStickX=false;
+            // Up/down → ±0.1 on selected element
+            if(lsY<-0.5&&!matEditPrevStickY){
+              mat[matEditRow][matEditCol]=Math.round((mat[matEditRow][matEditCol]+0.1)*100)/100;
+              matEditPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(lsY>0.5&&!matEditPrevStickY){
+              mat[matEditRow][matEditCol]=Math.round((mat[matEditRow][matEditCol]-0.1)*100)/100;
+              matEditPrevStickY=true;triggerHaptics(0.4,80);rebuildScene(false);
+            } else if(Math.abs(lsY)<0.3) matEditPrevStickY=false;
+            // Left grip → cycle to next row
+            if(grip&&!matEditPrevLGrip){
+              matEditRow=(matEditRow+1)%matRows;matEditPrevLGrip=true;triggerHaptics(0.3,60);updatePanel();updateWristHUD();
+            } else if(!grip) matEditPrevLGrip=false;
           } else {
             // ── Normal controls ────────────────────────────────────────────────
             if(scenarioMode===4){
@@ -1865,11 +1991,13 @@ renderer.setAnimationLoop(()=>{
             // Left thumbstick X → cycle scenario
             const leftStickX=src.gamepad.axes[2]??src.gamepad.axes[0]??0;
             if(leftStickX>0.5&&!prevLeftStickTriggered){
-              scenarioMode=(scenarioMode+1)%5;planeEditMode=false;
+              scenarioMode=(scenarioMode+1)%5;planeEditMode=false;matrixEditMode=false;
+              mat0Custom=deepCopy2D(PRESETS[presetIdx].A);mat1Custom=deepCopy2D(MAT1_DEFAULT);mat2Custom=deepCopy2D(MAT2_DEFAULT);
               tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
               prevLeftStickTriggered=true;
             } else if(leftStickX<-0.5&&!prevLeftStickTriggered){
-              scenarioMode=(scenarioMode+4)%5;planeEditMode=false;
+              scenarioMode=(scenarioMode+4)%5;planeEditMode=false;matrixEditMode=false;
+              mat0Custom=deepCopy2D(PRESETS[presetIdx].A);mat1Custom=deepCopy2D(MAT1_DEFAULT);mat2Custom=deepCopy2D(MAT2_DEFAULT);
               tParam=0;triggerHaptics(0.5,120);rebuildScene(true);
               prevLeftStickTriggered=true;
             } else if(Math.abs(leftStickX)<0.3){
