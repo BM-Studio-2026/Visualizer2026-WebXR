@@ -1902,6 +1902,15 @@ renderer.setAnimationLoop(()=>{
   if(keys['ArrowRight']&&scenarioMode!==4){tParam=Math.min(3,tParam+T_SPEED*dt);moved=true;}
   if(keys['ArrowLeft'] &&scenarioMode!==4){tParam=Math.max(0,tParam-T_SPEED*dt);moved=true;}
 
+  // Desktop scene navigation
+  const ROT_SPEED=1.0,PAN_SPEED=0.5;
+  if(keys[',']||keys['<']){root.rotation.y-=ROT_SPEED*dt;}
+  if(keys['.']||keys['>']){root.rotation.y+=ROT_SPEED*dt;}
+  if(keys['i']||keys['I']){root.position.y+=PAN_SPEED*dt;}
+  if(keys['k']||keys['K']){root.position.y-=PAN_SPEED*dt;}
+  if(keys['j']||keys['J']){root.position.x-=PAN_SPEED*dt;}
+  if(keys['l']||keys['L']){root.position.x+=PAN_SPEED*dt;}
+
   // VR input
   if(renderer.xr.isPresenting){
     const session=renderer.xr.getSession();
