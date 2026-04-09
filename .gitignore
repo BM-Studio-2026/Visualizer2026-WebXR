@@ -1,5 +1,6 @@
 # Local-only files
 TECHNICAL_REPORT.md
+.claude/settings.local.json
 
 # Logs
 logs
